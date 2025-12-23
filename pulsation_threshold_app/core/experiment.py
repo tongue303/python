@@ -1,4 +1,4 @@
-    from .stimulus import PureToneStimulus
+from .stimulus import PureToneStimulus
 from .adaptive import AdaptiveStaircase
 
 class AbsoluteThresholdExperiment:

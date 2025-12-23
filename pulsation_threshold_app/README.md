@@ -23,6 +23,8 @@ pulsation_threshold_app/
 │   ├── stimulus.py         # 刺激生成（正弦波、ランプ、シーケンス合成）
 │   ├── adaptive.py         # 適応法アルゴリズム（interleaved staircase）
 │   └── experiment.py       # 実験フロー管理（可聴閾値測定 / 本実験）
+├── tests/                  # 検証・テスト用ディレクトリ（追加）
+│   └── verify_stimulus.py  # ← ここにプロット用プログラムを置く
 ├── utils/                  # ユーティリティ
 │   └── audio.py            # 音声再生・デバイス制御・キャリブレーション
 └── data/                   # 測定データ保存用（CSV/JSON）
