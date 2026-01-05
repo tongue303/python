@@ -26,5 +26,6 @@ pulsation_threshold_app/
 ├── tests/                  # 検証・テスト用ディレクトリ（追加）
 │   └── verify_stimulus.py  # ← ここにプロット用プログラムを置く
 ├── utils/                  # ユーティリティ
+│   ├── __init__.py
 │   └── audio.py            # 音声再生・デバイス制御・キャリブレーション
 └── data/                   # 測定データ保存用（CSV/JSON）
