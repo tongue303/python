@@ -1,12 +1,16 @@
+# -*- coding: utf-8 -*-
 """
 phase2_stimulus.py
 ==================
 Phase 2: 刺激音生成モジュール
 
 提供する関数:
-  - generate_pink_noise(level_db_fs, duration)
-  - generate_test_signal(level_db_fs, itd_seconds, duration)
-  - build_alternating_stimulus(masker_level_db, test_level_db, itd_seconds)
+  - generate_bandpass_noise(level_db_fs, center_freq, itd_seconds, duration)
+      帯域通過ノイズ（通過帯域: center_freq/2 ～ center_freq×2、±1 オクターブ対称）
+  - generate_test_signal(level_db_fs, itd_seconds, duration, ...)
+      テスト信号（純音 / SAM / Transposed）
+  - build_alternating_stimulus(masker_level_db, test_level_db, test_itd_seconds, ...)
+      M-T-M-T-M-T-M 交番刺激の合成
 """
 
 import numpy as np
@@ -42,47 +46,77 @@ def _db_to_amplitude(level_db_fs: float) -> float:
 
 
 # ────────────────────────────────────────────
-# ピンクノイズ生成
+# バンドパスノイズ生成
 # ────────────────────────────────────────────
 
-def generate_pink_noise(level_db_fs: float, duration: float = config.MASKER_DURATION) -> np.ndarray:
+def generate_bandpass_noise(
+    level_db_fs: float,
+    center_freq: float,
+    itd_seconds: float = 0.0,
+    duration: float = config.MASKER_DURATION,
+) -> np.ndarray:
     """
-    ピンクノイズ（1/f）をモノラルで生成する。
+    帯域通過ホワイトノイズを生成し、ITD（時間遅延）を付与してステレオ化する。
 
-    FFTによる 1/√f フィルタリングで生成。
-    ITD=0 のため左右同一の波形をステレオ化して返す。
+    通過帯域: center_freq / 2 ～ center_freq × 2（±1 オクターブ対称）
+    バタワース 4 次バンドパスフィルタを適用する。
 
     Parameters
     ----------
     level_db_fs : float
         提示レベル (dB FS)。
+    center_freq : float
+        マスカーの中心周波数 (Hz)。テスト信号と同じ周波数を指定する。
+    itd_seconds : float
+        Interaural Time Delay（秒）。正値 → 右チャネルを遅延。
     duration : float
         長さ（秒）。
 
     Returns
     -------
     np.ndarray
-        shape (n_samples, 2) の float32 ステレオ配列。
+        shape (n_samples, 2) の float64 ステレオ配列。
     """
+    from scipy.signal import butter, sosfilt
+
     sr = config.SAMPLE_RATE
-    n = int(sr * duration)
+    base_n = int(sr * duration)
+    shift_n = int(np.round(abs(itd_seconds) * sr))
+    total_n = base_n + shift_n
 
-    # ホワイトノイズ → FFT → 1/√f フィルタ → IFFT
-    white = np.random.randn(n)
-    fft_w = np.fft.rfft(white)
-    freqs = np.fft.rfftfreq(n, d=1.0 / sr)
-    freqs[0] = 1.0  # DC成分はゼロ除算を避けるため 1.0 にする
-    fft_pink = fft_w / np.sqrt(freqs)
-    fft_pink[0] = 0.0  # DC除去
-    pink = np.fft.irfft(fft_pink, n=n)
+    # 通過帯域: fc/2 ～ fc×2（±1 オクターブ対称）
+    low  = center_freq / 2
+    high = center_freq * 2
+    # バタワースフィルタの有効範囲にクランプ（DC・ナイキストを避ける）
+    low  = max(low,  20.0)
+    high = min(high, sr / 2.0 - 1.0)
 
-    # RMS正規化 → レベル適用 → テーパー
+    # 4次バタワースバンドパスフィルタ
+    sos = butter(4, [low, high], btype='bandpass', fs=sr, output='sos')
+
+    # ホワイトノイズ生成 → フィルタ適用
+    white    = np.random.randn(total_n)
+    filtered = sosfilt(sos, white)
+
+    # ITD分割の前に全体をRMS正規化 → L/R で同一の正規化係数を使うことで
+    # 毎試行のILD（両耳レベル差）の変動を防ぐ
     amplitude = _db_to_amplitude(level_db_fs)
-    pink = _rms_normalize(pink, target_rms=1.0) * amplitude
-    _apply_cosine_ramp(pink, sr, config.RAMP_DURATION)
+    filtered  = _rms_normalize(filtered, target_rms=1.0) * amplitude
 
-    stereo = np.column_stack([pink, pink]).astype(np.float32)
-    return stereo
+    # 左右の切り出しにより時間遅延(ITD)を実現
+    left  = np.zeros(base_n)
+    right = np.zeros(base_n)
+    if itd_seconds >= 0:
+        right[:] = filtered[:base_n]
+        left[:]  = filtered[shift_n : shift_n + base_n]
+    else:
+        left[:]  = filtered[:base_n]
+        right[:] = filtered[shift_n : shift_n + base_n]
+
+    _apply_cosine_ramp(left,  sr, config.RAMP_DURATION)
+    _apply_cosine_ramp(right, sr, config.RAMP_DURATION)
+
+    return np.column_stack([left, right]).astype(np.float64)
 
 
 # ────────────────────────────────────────────
@@ -93,12 +127,13 @@ def generate_test_signal(
     level_db_fs: float,
     itd_seconds: float,
     duration: float = config.TEST_DURATION,
+    test_freq: float = config.TEST_FREQ,
+    mod_freq: float = config.MOD_FREQ,
+    mod_type: str = "None",
 ) -> np.ndarray:
     """
-    500Hz 正弦波テスト信号を生成する。
-
-    ITDは微細構造（fine structure）の位相差として付与する。
-    エンベロープ（立ち上がり・立ち下がり）は左右同一（ITD=0相当）。
+    テスト信号（純音、SAM、Transposed）を生成しITDを付与する。
+    1.5kHz以上かつmod_typeが設定されていれば変調を行う。
 
     Parameters
     ----------
@@ -108,6 +143,12 @@ def generate_test_signal(
         Interaural Time Delay（秒）。正値 → 右チャネルを遅延。
     duration : float
         長さ（秒）。
+    test_freq : float
+        テスト周波数 (Hz)
+    mod_freq : float
+        変調周波数 (Hz)
+    mod_type : str
+        "None", "SAM", "Transposed" のいずれか
 
     Returns
     -------
@@ -115,24 +156,50 @@ def generate_test_signal(
         shape (n_samples, 2) の float32 ステレオ配列。
     """
     sr = config.SAMPLE_RATE
-    n = int(sr * duration)
-    t = np.linspace(0, duration, n, endpoint=False)
+    base_n = int(sr * duration)
+    shift_n = int(np.round(abs(itd_seconds) * sr))
+    total_n = base_n + shift_n
+    
+    t = np.linspace(0, total_n / sr, total_n, endpoint=False)
+    
+    # キャリア成分
+    carrier = np.sin(2 * np.pi * test_freq * t)
+    
+    if test_freq >= 1500.0 and mod_type != "None":
+        if mod_type == "SAM":
+            # SAM envelope: 1 - cos(2*pi*f_mod*t)
+            envelope = 1.0 - np.cos(2 * np.pi * mod_freq * t)
+        elif mod_type == "Transposed":
+            # Transposed envelope: Half-wave rectified cosine
+            envelope = np.maximum(0, np.cos(2 * np.pi * mod_freq * t))
+        else:
+            envelope = 1.0
+        
+        signal = carrier * envelope
+    else:
+        signal = carrier
+
+    # RMSを1.0に合わせた後、振幅を設定
+    signal = _rms_normalize(signal, target_rms=1.0)
+
+    left = np.zeros(base_n)
+    right = np.zeros(base_n)
+    if itd_seconds >= 0:
+        right[:] = signal[:base_n]
+        left[:] = signal[shift_n : shift_n + base_n]
+    else:
+        left[:] = signal[:base_n]
+        right[:] = signal[shift_n : shift_n + base_n]
+        
     amplitude = _db_to_amplitude(level_db_fs)
+    left *= amplitude
+    right *= amplitude
 
-    # ITDを位相差に変換（500 Hz: 1周期 = 2ms）
-    phase_delay_rad = 2 * np.pi * config.TEST_FREQ * itd_seconds
+    # エンベロープテーパー（左右別々に適用）
+    _apply_cosine_ramp(left, sr, config.RAMP_DURATION)
+    _apply_cosine_ramp(right, sr, config.RAMP_DURATION)
 
-    left = amplitude * np.sin(2 * np.pi * config.TEST_FREQ * t)
-    right = amplitude * np.sin(2 * np.pi * config.TEST_FREQ * t - phase_delay_rad)
-
-    # エンベロープテーパー（左右共通）
-    ramp_n = int(sr * config.RAMP_DURATION)
-    if ramp_n > 0:
-        ramp = 0.5 * (1 - np.cos(np.pi * np.arange(ramp_n) / ramp_n))
-        left[:ramp_n] *= ramp;  left[-ramp_n:] *= ramp[::-1]
-        right[:ramp_n] *= ramp; right[-ramp_n:] *= ramp[::-1]
-
-    stereo = np.column_stack([left, right]).astype(np.float32)
+    stereo = np.column_stack([left, right]).astype(np.float64)
     return stereo
 
 
@@ -143,7 +210,11 @@ def generate_test_signal(
 def build_alternating_stimulus(
     masker_level_db: float,
     test_level_db: float,
-    itd_seconds: float,
+    test_itd_seconds: float,
+    test_freq: float = config.TEST_FREQ,
+    mod_freq: float = config.MOD_FREQ,
+    mod_type: str = "None",
+    masker_itd_sec: float = 0.0,
 ) -> np.ndarray:
     """
     M-T-M-T-M-T-M の交番刺激（7区間）を合成する。
@@ -157,7 +228,7 @@ def build_alternating_stimulus(
         マスカー提示レベル (dB FS)。
     test_level_db : float
         テスト信号提示レベル (dB FS)。
-    itd_seconds : float
+    test_itd_seconds : float
         テスト信号の ITD（秒）。
 
     Returns
@@ -169,18 +240,22 @@ def build_alternating_stimulus(
     cf_n = int(sr * config.CROSSFADE_DURATION)  # クロスフェードサンプル数
 
     # 各区間を生成
-    masker_seg = generate_pink_noise(masker_level_db, config.MASKER_DURATION)
-    test_seg = generate_test_signal(test_level_db, itd_seconds, config.TEST_DURATION)
+    # マスカーは M1〜M4 を独立して生成する（同一ノイズを繰り返すと
+    # Repetition Pitch が生じ音色のカラリングとして知覚されるため）
+    test_seg = generate_test_signal(test_level_db, test_itd_seconds, config.TEST_DURATION, test_freq, mod_freq, mod_type)
 
     # パターン: M T M T M T M
+    # マスカーはテスト周波数を中心としたバンドパスノイズ
+    #   通過帯域: test_freq/2 ～ test_freq×2（±1 オクターブ対称）
+    # M1〜M4 を独立して生成する（同一ノイズ繰り返しによる Repetition Pitch を防ぐため）
     segments = [
-        masker_seg.copy(),
+        generate_bandpass_noise(masker_level_db, test_freq, masker_itd_sec, config.MASKER_DURATION),  # M1
         test_seg.copy(),
-        masker_seg.copy(),
+        generate_bandpass_noise(masker_level_db, test_freq, masker_itd_sec, config.MASKER_DURATION),  # M2
         test_seg.copy(),
-        masker_seg.copy(),
+        generate_bandpass_noise(masker_level_db, test_freq, masker_itd_sec, config.MASKER_DURATION),  # M3
         test_seg.copy(),
-        masker_seg.copy(),
+        generate_bandpass_noise(masker_level_db, test_freq, masker_itd_sec, config.MASKER_DURATION),  # M4
     ]
 
     # 区間長
@@ -211,7 +286,7 @@ def build_alternating_stimulus(
 
         pos += seg_n - cf_n  # 次区間の開始位置（クロスフェード分だけ手前）
 
-    return out.astype(np.float32)
+    return out.astype(np.float64)
 
 
 # ────────────────────────────────────────────
@@ -221,21 +296,33 @@ def build_alternating_stimulus(
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
-    sr = config.SAMPLE_RATE
+    sr        = config.SAMPLE_RATE
     masker_db = -20.0
     test_db   = -40.0
-    itd_us    = 400e-6  # 400 µs
+    itd_us    = 400e-6   # 400 us ITD
+    test_freq = 4000.0   # Hz  (>= 1500 Hz to activate modulation)
+    mod_freq  = config.MOD_FREQ
+    mod_type  = "Transposed"    # "None" | "SAM" | "Transposed"
 
-    stim = build_alternating_stimulus(masker_db, test_db, itd_us)
+    stim = build_alternating_stimulus(
+        masker_db, test_db, itd_us,
+        test_freq=test_freq,
+        mod_freq=mod_freq,
+        mod_type=mod_type,
+    )
     t_axis = np.arange(stim.shape[0]) / sr * 1000  # ms
 
     fig, axes = plt.subplots(2, 1, figsize=(12, 5), sharex=True)
     axes[0].plot(t_axis, stim[:, 0], lw=0.5, label="Left")
-    axes[0].set_ylabel("Amplitude"); axes[0].legend(); axes[0].set_title("交番刺激 (Left ch)")
+    axes[0].set_ylabel("Amplitude")
+    axes[0].legend()
+    axes[0].set_title(f"Alternating Stimulus (Left ch) | {test_freq:.0f} Hz, {mod_type}, ITD={itd_us*1e6:.0f} us")
     axes[1].plot(t_axis, stim[:, 1], lw=0.5, color="orange", label="Right")
-    axes[1].set_xlabel("Time (ms)"); axes[1].set_ylabel("Amplitude")
-    axes[1].legend(); axes[1].set_title("交番刺激 (Right ch)")
+    axes[1].set_xlabel("Time (ms)")
+    axes[1].set_ylabel("Amplitude")
+    axes[1].legend()
+    axes[1].set_title("Alternating Stimulus (Right ch)")
     plt.tight_layout()
     plt.savefig("stimulus_waveform.png", dpi=150)
-    print(f"波形を stimulus_waveform.png に保存しました（{stim.shape[0]/sr*1000:.1f} ms）")
+    print(f"Waveform saved to stimulus_waveform.png  ({stim.shape[0]/sr*1000:.1f} ms)")
     plt.show()

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 main.py
 =======
@@ -12,6 +13,13 @@ main.py
 
 import os
 import random
+import sys
+
+# Windows/Mac 両環境でコンソール出力の文字化けを防ぐ
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
 
 from psychopy import visual, core, gui, event
 
@@ -26,20 +34,39 @@ from plot_results import load_csv, calc_thresholds, plot_all
 # 初期ダイアログ
 # ────────────────────────────────────────────
 
-def show_dialog() -> tuple[str, list[int], float | None]:
+from psychopy import sound, prefs
+
+def show_dialog() -> tuple[str, list[int], float | None, str, float, float, str, int]:
     """
     被験者IDと測定するITDリスト、および既知のSL基準値を取得するダイアログ。
 
     Returns
     -------
-    (subject_id, itd_list_us, sl_reference_db)
+    (subject_id, itd_list_us, sl_reference_db, device_name, test_freq, mod_freq, mod_type, masker_itd)
         sl_reference_db: 入力があればその値を使いPhase1をスキップ。
                          空欄なら None を返し、Phase1を実施する。
     """
+    try:
+        devices = sound.getDevices()
+        if isinstance(devices, dict):
+            device_names = list(devices.keys())
+        else:
+            device_names = [dev['deviceName'] for dev in devices]
+    except Exception:
+        device_names = ["default"]
+
+    if not device_names:
+        device_names = ["default"]
+
     dlg = gui.Dlg(title="Pulsation Threshold Measurement")
     dlg.addField("Subject ID:", "P01")
     dlg.addField("ITD list (us, comma-separated):", "0, 200, 400")
     dlg.addField("SL reference (dB FS, blank = run Phase 1):", "")
+    dlg.addField("Sound Device:", choices=["default"] + [d for d in device_names if d != "default"])
+    dlg.addField("Test frequency (Hz):", config.TEST_FREQ)
+    dlg.addField("Modulation frequency (Hz):", config.MOD_FREQ)
+    dlg.addField("Modulation type:", choices=["None", "SAM", "Transposed"], initial="None")
+    dlg.addField("Masker ITD (us):", config.MASKER_ITD_US)
 
     ok = dlg.show()
     if not ok:
@@ -48,6 +75,11 @@ def show_dialog() -> tuple[str, list[int], float | None]:
     subject_id   = str(dlg.data[0]).strip()
     raw_itds     = str(dlg.data[1]).strip()
     raw_sl       = str(dlg.data[2]).strip()
+    device_name  = str(dlg.data[3])
+    test_freq    = float(dlg.data[4])
+    mod_freq     = float(dlg.data[5])
+    mod_type     = str(dlg.data[6])
+    masker_itd   = int(dlg.data[7])
 
     # ITDリストのパース
     itd_list_us = []
@@ -66,20 +98,38 @@ def show_dialog() -> tuple[str, list[int], float | None]:
             sl_reference_db = float(raw_sl)
         except ValueError:
             raise ValueError(f"SL reference must be a number: '{raw_sl}'")
+            
+    if device_name != "default":
+        prefs.hardware['audioDevice'] = [device_name]
 
-    return subject_id, itd_list_us, sl_reference_db
+    return subject_id, itd_list_us, sl_reference_db, device_name, test_freq, mod_freq, mod_type, masker_itd
 
 
 # ────────────────────────────────────────────
 # メイン
 # ────────────────────────────────────────────
 
+def show_instructions(win: visual.Window) -> None:
+    """
+    実験の全体的な説明と教示を表示する。
+    """
+    msg = visual.TextStim(
+        win,
+        text=config.INSTRUCTION_TEXT,
+        height=0.06, wrapWidth=1.8, color="white",
+    )
+    msg.draw()
+    win.flip()
+    event.waitKeys(keyList=["space"])
+
+
 def main() -> None:
     # ── 初期ダイアログ ──
-    subject_id, itd_list_us, sl_reference_db = show_dialog()
+    subject_id, itd_list_us, sl_reference_db, device_name, test_freq, mod_freq, mod_type, masker_itd = show_dialog()
 
     # µs → 秒 変換
     itd_list_sec = [us * 1e-6 for us in itd_list_us]
+    masker_itd_sec = masker_itd * 1e-6
 
     # ── ウィンドウ生成 ──
     win = visual.Window(
@@ -90,6 +140,9 @@ def main() -> None:
         screen=0,
     )
     win.setMouseVisible(False)
+
+    # ── 教示画面の表示 ──
+    show_instructions(win)
 
     recorder = DataRecorder()
 
@@ -118,6 +171,12 @@ def main() -> None:
             subject_id=subject_id,
             itd_label_us=itd_us,
             recorder=recorder,
+            sl_reference_db=sl_reference_db,
+            test_freq=test_freq,
+            mod_freq=mod_freq,
+            mod_type=mod_type,
+            masker_itd_sec=masker_itd_sec,
+            masker_itd_us=masker_itd,
         )
 
         final_thr = calculate_final_threshold(thr_a, thr_b)

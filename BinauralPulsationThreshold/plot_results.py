@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 plot_results.py
 ===============
@@ -18,13 +19,21 @@ plot_results.py
 import sys
 import os
 import glob
+import platform
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 
-# ── 日本語フォント（環境に合わせて変更してください）──
-plt.rcParams["font.family"] = "Meiryo"   # Windows: Meiryo / Mac: Hiragino Sans
+# ── OS別 日本語フォント自動選択 ──
+_os = platform.system()
+if _os == "Windows":
+    _font = "Meiryo"
+elif _os == "Darwin":  # macOS
+    _font = "Hiragino Sans"
+else:
+    _font = "sans-serif"
+plt.rcParams["font.family"] = _font
 plt.rcParams["axes.unicode_minus"] = False
 
 
@@ -45,6 +54,10 @@ def load_csv(path: str | None = None) -> tuple[pd.DataFrame, str]:
         path = files[-1]  # 最新ファイル
 
     df = pd.read_csv(path)
+    if "sl_reference_db" in df.columns:
+        # FSベースからSL(1kHz)ベースに校正
+        df["level_db"] = df["level_db"] - df["sl_reference_db"]
+
     print(f"読み込み: {path}  ({len(df)} 行)")
     return df, path
 
@@ -94,6 +107,16 @@ def plot_all(df: pd.DataFrame, thr_df: pd.DataFrame,
     itd_list = sorted(df["itd_us"].unique())
     n_itd = len(itd_list)
 
+    subject = df["subject_id"].iloc[0]
+    
+    # メタデータ取得（過去のデータ対応付き）
+    test_freq = df["test_freq"].iloc[0] if "test_freq" in df.columns else config.TEST_FREQ
+    mod_type = df["mod_type"].iloc[0] if "mod_type" in df.columns else "None"
+    mod_freq = df["mod_freq"].iloc[0] if "mod_freq" in df.columns else config.MOD_FREQ
+    masker_itd = df["masker_itd_us"].iloc[0] if "masker_itd_us" in df.columns else config.MASKER_ITD_US
+    
+    subtitle = f"Test: {test_freq}Hz, Mod: {mod_type} ({mod_freq}Hz), Masker ITD: {masker_itd}µs"
+
     # ────────────────────────────────────────
     # ① 試行履歴グラフ（ITD条件ごとにサブプロット）
     # ────────────────────────────────────────
@@ -102,7 +125,7 @@ def plot_all(df: pd.DataFrame, thr_df: pd.DataFrame,
         figsize=(12, 4.5 * n_itd),
         squeeze=False,
     )
-    fig.suptitle("Track A / B trial history", fontsize=14, fontweight="bold", y=1.01)
+    fig.suptitle(f"Track A / B trial history\n{subtitle}", fontsize=14, fontweight="bold", y=1.01)
 
     for row_idx, itd in enumerate(itd_list):
         ax = axes[row_idx][0]
@@ -163,7 +186,7 @@ def plot_all(df: pd.DataFrame, thr_df: pd.DataFrame,
 
         ax.set_title(f"ITD = {itd} µs", fontsize=11, fontweight="bold")
         ax.set_xlabel("Trial number")
-        ax.set_ylabel("Test signal level (dB FS)")
+        ax.set_ylabel("Test signal level (dB SL in 1kHz)")
         ax.yaxis.set_minor_locator(ticker.MultipleLocator(1))
         ax.grid(True, which="major", linestyle="--", alpha=0.4)
         ax.grid(True, which="minor", linestyle=":", alpha=0.2)
@@ -221,8 +244,8 @@ def plot_all(df: pd.DataFrame, thr_df: pd.DataFrame,
     ax2.set_xticks(x)
     ax2.set_xticklabels([f"{itd} µs" for itd in itd_list])
     ax2.set_xlabel("ITD condition")
-    ax2.set_ylabel("Pulsation threshold (dB FS)")
-    ax2.set_title(f"Pulsation threshold summary  (Subject: {subject})",
+    ax2.set_ylabel("Pulsation threshold (dB SL in 1kHz)")
+    ax2.set_title(f"Pulsation threshold summary  (Subject: {subject})\n{subtitle}",
                   fontsize=12, fontweight="bold")
     ax2.legend()
     ax2.grid(True, axis="y", linestyle="--", alpha=0.4)

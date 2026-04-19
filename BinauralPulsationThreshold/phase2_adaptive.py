@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 phase2_adaptive.py
 ==================
@@ -158,6 +159,12 @@ def run_itd_condition(
     subject_id: str,
     itd_label_us: int,
     recorder,          # data_recorder.DataRecorder
+    sl_reference_db: float,
+    test_freq: float,
+    mod_freq: float,
+    mod_type: str,
+    masker_itd_sec: float,
+    masker_itd_us: int,
 ) -> tuple[float, float]:
     """
     1つのITD条件について Track A/B をインターリーブで実行する。
@@ -174,6 +181,18 @@ def run_itd_condition(
         CSV記録に用いるITDラベル (µs)。
     recorder : DataRecorder
         データ記録オブジェクト。
+    sl_reference_db : float
+        1kHz聴取閾値基準 (dB FS)
+    test_freq : float
+        テスト信号周波数 (Hz)
+    mod_freq : float
+        変調周波数 (Hz)
+    mod_type : str
+        変調タイプ
+    masker_itd_sec : float
+        マスカーのITD (秒)
+    masker_itd_us : int
+        マスカーのITD (µs)
 
     Returns
     -------
@@ -212,7 +231,10 @@ def run_itd_condition(
         level = track.get_current_level()
 
         # ── 刺激生成・再生 ──
-        stim_array = build_alternating_stimulus(masker_level_db, level, itd_seconds)
+        stim_array = build_alternating_stimulus(
+            masker_level_db, level, itd_seconds,
+            test_freq=test_freq, mod_freq=mod_freq, mod_type=mod_type, masker_itd_sec=masker_itd_sec
+        )
         snd = sound.Sound(
             value=stim_array,
             sampleRate=config.SAMPLE_RATE,
@@ -228,6 +250,7 @@ def run_itd_condition(
         stim_duration = stim_array.shape[0] / config.SAMPLE_RATE
         core.wait(stim_duration)
         snd.stop()
+        snd = None  # 明示的に解放してオーディオバッファの残留を防ぐ
 
         # ── 応答収集 ──
         prompt.text = "Discontinuous (断続) → [D]     Continuous (連続) → [C]"
@@ -235,15 +258,10 @@ def run_itd_condition(
         win.flip()
 
         keys = event.waitKeys(
-            maxWait=3.0,
             keyList=[config.KEY_PULSATING, config.KEY_CONTINUOUS, "escape"],
         )
 
-        if not keys:
-            # タイムアウト: 連続扱い
-            is_pulsating = False
-        elif keys[0] == "escape":
-            snd.stop()
+        if keys[0] == "escape":
             win.close()
             core.quit()
         else:
@@ -256,6 +274,11 @@ def run_itd_condition(
         last = track.history[-1]
         recorder.add_trial(
             subject_id=subject_id,
+            sl_reference_db=sl_reference_db,
+            test_freq=test_freq,
+            mod_freq=mod_freq,
+            mod_type=mod_type,
+            masker_itd_us=masker_itd_us,
             itd_us=itd_label_us,
             track=last["track"],
             trial_no=last["trial_global"],

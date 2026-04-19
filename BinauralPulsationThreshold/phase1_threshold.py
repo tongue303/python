@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 phase1_threshold.py
 ===================
@@ -50,7 +51,7 @@ def generate_1khz_tone(level_db_fs: float, duration: float = config.PHASE1_DURAT
     wave[-ramp_n:] *= ramp[::-1]
 
     # ステレオ化 (両耳同位相)
-    stereo = np.column_stack([wave, wave]).astype(np.float32)
+    stereo = np.column_stack([wave, wave]).astype(np.float64)
     return stereo
 
 
@@ -121,6 +122,7 @@ def run_phase1(win: visual.Window) -> float:
         snd.play()
         core.wait(config.PHASE1_DURATION)
         snd.stop()
+        snd = None  # 明示的に解放してオーディオバッファの残留を防ぐ
 
         # ── 音終了後に Y/N 質問を表示 ──
         prompt.text = "聴こえましたか？    [Y] はい    [N] いいえ"

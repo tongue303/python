@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 data_recorder.py
 ================
@@ -21,6 +22,11 @@ class DataRecorder:
     # CSV の列定義
     FIELDNAMES = [
         "subject_id",
+        "sl_reference_db",
+        "test_freq",
+        "mod_freq",
+        "mod_type",
+        "masker_itd_us",
         "itd_us",
         "track",
         "trial_no",
@@ -35,6 +41,11 @@ class DataRecorder:
     def add_trial(
         self,
         subject_id: str,
+        sl_reference_db: float,
+        test_freq: float,
+        mod_freq: float,
+        mod_type: str,
+        masker_itd_us: int,
         itd_us: int,
         track: str,
         trial_no: int,
@@ -48,8 +59,18 @@ class DataRecorder:
         Parameters
         ----------
         subject_id : str
+        sl_reference_db : float
+            1kHz聴取閾値基準 (dB FS)
+        test_freq : float
+            テスト信号周波数 (Hz)
+        mod_freq : float
+            変調周波数 (Hz)
+        mod_type : str
+            変調タイプ
+        masker_itd_us : int
+            マスカーのITD (µs)
         itd_us : int
-            ITD (µs)。ラベル用の整数値。
+            テスト信号のITD (µs)。ラベル用の整数値。
         track : str
             "A" または "B"。
         trial_no : int
@@ -63,6 +84,11 @@ class DataRecorder:
         """
         self._rows.append({
             "subject_id": subject_id,
+            "sl_reference_db": sl_reference_db,
+            "test_freq": test_freq,
+            "mod_freq": mod_freq,
+            "mod_type": mod_type,
+            "masker_itd_us": masker_itd_us,
             "itd_us": itd_us,
             "track": track,
             "trial_no": trial_no,
@@ -90,7 +116,7 @@ class DataRecorder:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = os.path.join(config.DATA_DIR, f"{subject_id}_{timestamp}.csv")
 
-        with open(filename, "w", newline="", encoding="utf-8") as f:
+        with open(filename, "w", newline="", encoding="utf-8-sig") as f:
             writer = csv.DictWriter(f, fieldnames=self.FIELDNAMES)
             writer.writeheader()
             writer.writerows(self._rows)
