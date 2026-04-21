@@ -38,8 +38,8 @@ N_MASKER: int = 4
 N_TEST: int = 3
 
 # ---- Phase 2: Jesteadt適応アルゴリズム ----
-TRACK_A_START_LEVEL: float = -10.0  # Track A 開始レベル (マスカーレベルからのオフセット dB)
-TRACK_B_START_LEVEL: float = -45.0  # Track B 開始レベル (マスカーレベルからのオフセット dB)
+TRACK_A_START_LEVEL: float = -15.0  # Track A 開始レベル (マスカーレベルからのオフセット dB)
+TRACK_B_START_LEVEL: float = -50.0  # Track B 開始レベル (マスカーレベルからのオフセット dB)
 STEP_LARGE: float = 2.0         # 初期ステップ幅 (dB)
 STEP_SMALL: float = 1.0         # 収束後ステップ幅 (dB)
 STEP_CHANGE_REVERSALS: int = 2  # ステップ縮小に必要な反転回数
