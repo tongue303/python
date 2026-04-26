@@ -20,7 +20,7 @@ PHASE1_START_LEVEL: float = -20.0   # 開始レベル (dB FS, フルスケール
 PHASE1_STEP_LARGE: float = 4.0      # 初期ステップ幅 (dB)
 PHASE1_STEP_SMALL: float = 2.0      # 収束後ステップ幅 (dB)
 PHASE1_STEP_CHANGE_REVERSALS: int = 2   # ステップ縮小に必要な反転回数
-PHASE1_TOTAL_REVERSALS: int = 3     # Phase1終了に必要な反転回数
+PHASE1_TOTAL_REVERSALS: int = 4     # Phase1終了に必要な反転回数
 PHASE1_MIN_LEVEL: float = -100.0    # 提示レベル下限 (dB FS)
 PHASE1_MAX_LEVEL: float = 0.0       # 提示レベル上限 (dB FS)
 
@@ -28,22 +28,22 @@ PHASE1_MAX_LEVEL: float = 0.0       # 提示レベル上限 (dB FS)
 MASKER_DURATION: float = 0.165  # マスカー1区間の長さ (秒)
 TEST_DURATION: float = 0.165    # テスト信号1区間の長さ (秒)
 CROSSFADE_DURATION: float = 0.020   # クロスフェード長さ (秒)
-TEST_FREQ: float = 250.0        # テスト信号周波数 (Hz)
+TEST_FREQ: float = 500.0        # テスト信号周波数 (Hz)
 MOD_FREQ: float = 250.0         # 変調周波数 (Hz)
 MOD_TYPE: str = "None"    # 変調タイプ ("None", "SAM", "Transposed")
 MASKER_ITD_US: int = 0          # マスカーのITD (µs)
-SL_OFFSET_DB: float = 65.0      # マスカーレベル = Phase1閾値 + この値 (dB)
+SL_OFFSET_DB: float = 70.0      # マスカーレベル = Phase1閾値 + この値 (dB)
 # 交番刺激パターン: M-T-M-T-M-T-M (M=4回, T=3回)
 N_MASKER: int = 4
 N_TEST: int = 3
 
 # ---- Phase 2: Jesteadt適応アルゴリズム ----
-TRACK_A_START_LEVEL: float = -15.0  # Track A 開始レベル (マスカーレベルからのオフセット dB)
-TRACK_B_START_LEVEL: float = -50.0  # Track B 開始レベル (マスカーレベルからのオフセット dB)
-STEP_LARGE: float = 2.0         # 初期ステップ幅 (dB)
-STEP_SMALL: float = 1.0         # 収束後ステップ幅 (dB)
+TRACK_A_START_LEVEL: float = -10.0  # Track A 開始レベル (マスカーレベルからのオフセット dB)
+TRACK_B_START_LEVEL: float = -45.0  # Track B 開始レベル (マスカーレベルからのオフセット dB)
+STEP_LARGE: float = 4.0         # 初期ステップ幅 (dB)
+STEP_SMALL: float = 2.0         # 収束後ステップ幅 (dB)
 STEP_CHANGE_REVERSALS: int = 2  # ステップ縮小に必要な反転回数
-TOTAL_REVERSALS: int = 7        # Track終了に必要な反転回数
+TOTAL_REVERSALS: int = 4        # Track終了に必要な反転回数
 TEST_MIN_LEVEL: float = -80.0   # テスト信号レベル下限 (dB FS)
 TEST_MAX_LEVEL: float = 0.0     # テスト信号レベル上限 (dB FS)
 
