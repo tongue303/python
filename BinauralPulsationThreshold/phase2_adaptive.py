@@ -33,25 +33,26 @@ class AdaptiveTrack:
     ----------
     track_name : str
         "A" または "B"。
-    masker_level_db : float
-        マスカーレベル (dB FS)。
+    masker_spectrum_level_db : float
+        マスカーのスペクトルレベル (dB/Hz)。
     start_level_offset : float
-        開始テスト信号レベル = masker_level_db + start_level_offset (dB)。
+        開始テスト信号レベル = masker_spectrum_level_db + 10*log10(BW) + start_level_offset (dB) に相当するが、
+        現状は masker_spectrum_level_db に対する直接のオフセットとして扱う。
     """
 
     def __init__(
         self,
         track_name: str,
-        masker_level_db: float,
+        masker_spectrum_level_db: float,
         start_level_offset: float,
     ) -> None:
         self.name = track_name
-        self.masker_level = masker_level_db
+        self.masker_spectrum_level = masker_spectrum_level_db
 
         # Track A: 下げる方向, Track B: 上げる方向
         self.is_track_a = (track_name == "A")
 
-        self.level = masker_level_db + start_level_offset
+        self.level = masker_spectrum_level_db + start_level_offset
         self.step = config.STEP_LARGE
 
         self.n_reversals = 0
@@ -154,7 +155,7 @@ class AdaptiveTrack:
 
 def run_itd_condition(
     win: visual.Window,
-    masker_level_db: float,
+    masker_spectrum_level_db: float,
     itd_seconds: float,
     subject_id: str,
     itd_label_us: int,
@@ -172,8 +173,8 @@ def run_itd_condition(
     Parameters
     ----------
     win : psychopy.visual.Window
-    masker_level_db : float
-        マスカーレベル (dB FS)。
+    masker_spectrum_level_db : float
+        マスカーのスペクトルレベル (dB/Hz)。
     itd_seconds : float
         ITD (秒)。
     subject_id : str
@@ -199,8 +200,8 @@ def run_itd_condition(
     (threshold_A, threshold_B) : tuple[float, float]
         Track AとBそれぞれの推定閾値 (dB FS)。
     """
-    track_a = AdaptiveTrack("A", masker_level_db, config.TRACK_A_START_LEVEL)
-    track_b = AdaptiveTrack("B", masker_level_db, config.TRACK_B_START_LEVEL)
+    track_a = AdaptiveTrack("A", masker_spectrum_level_db, config.TRACK_A_START_LEVEL)
+    track_b = AdaptiveTrack("B", masker_spectrum_level_db, config.TRACK_B_START_LEVEL)
 
     # ── 教示画面 ──
     instr = visual.TextStim(
@@ -232,7 +233,7 @@ def run_itd_condition(
 
         # ── 刺激生成・再生 ──
         stim_array = build_alternating_stimulus(
-            masker_level_db, level, itd_seconds,
+            masker_spectrum_level_db, level, itd_seconds,
             test_freq=test_freq, mod_freq=mod_freq, mod_type=mod_type, masker_itd_sec=masker_itd_sec
         )
         snd = sound.Sound(
@@ -304,9 +305,9 @@ if __name__ == "__main__":
     import sys
 
     print("=== Track A/B 単体シミュレーション ===")
-    masker_db = -20.0
-    track_a = AdaptiveTrack("A", masker_db, config.TRACK_A_START_LEVEL)
-    track_b = AdaptiveTrack("B", masker_db, config.TRACK_B_START_LEVEL)
+    masker_spectrum_db = -50.0  # dB/Hz
+    track_a = AdaptiveTrack("A", masker_spectrum_db, config.TRACK_A_START_LEVEL)
+    track_b = AdaptiveTrack("B", masker_spectrum_db, config.TRACK_B_START_LEVEL)
 
     rng = random.Random(42)
     trial = 0

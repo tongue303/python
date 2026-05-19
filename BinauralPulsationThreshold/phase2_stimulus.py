@@ -208,7 +208,7 @@ def generate_test_signal(
 # ────────────────────────────────────────────
 
 def build_alternating_stimulus(
-    masker_level_db: float,
+    masker_spectrum_level_db: float,
     test_level_db: float,
     test_itd_seconds: float,
     test_freq: float = config.TEST_FREQ,
@@ -220,12 +220,11 @@ def build_alternating_stimulus(
     M-T-M-T-M-T-M の交番刺激（7区間）を合成する。
 
     隣接区間は CROSSFADE_DURATION 秒のクロスフェードでつなぐ。
-    全体の長さは約 1035 ms。
 
     Parameters
     ----------
-    masker_level_db : float
-        マスカー提示レベル (dB FS)。
+    masker_spectrum_level_db : float
+        マスカーのスペクトルレベル (dB/Hz)。
     test_level_db : float
         テスト信号提示レベル (dB FS)。
     test_itd_seconds : float
@@ -234,32 +233,21 @@ def build_alternating_stimulus(
     Returns
     -------
     np.ndarray
-        shape (n_total, 2) の float32 ステレオ配列。
+        shape (n_total, 2) の float64 ステレオ配列。
     """
     sr = config.SAMPLE_RATE
     cf_n = int(sr * config.CROSSFADE_DURATION)  # クロスフェードサンプル数
 
-    # 各区間を生成
-    # マスカーは M1〜M4 を独立して生成する（同一ノイズを繰り返すと
-    # Repetition Pitch が生じ音色のカラリングとして知覚されるため）
+    # マスカーの全体レベルを帯域幅から逆算 (±1オクターブ: fc/2 ～ 2fc)
+    # BW = f_high - f_low = 2*fc - fc/2 = 1.5 * fc
+    bandwidth = 1.5 * test_freq
+    overall_masker_db = masker_spectrum_level_db + 10 * np.log10(bandwidth)
+
+    # テスト信号は1試行内で同一波形を使い回す
     test_seg = generate_test_signal(test_level_db, test_itd_seconds, config.TEST_DURATION, test_freq, mod_freq, mod_type)
 
-    # パターン: M T M T M T M
-    # マスカーはテスト周波数を中心としたバンドパスノイズ
-    #   通過帯域: test_freq/2 ～ test_freq×2（±1 オクターブ対称）
-    # M1〜M4 を独立して生成する（同一ノイズ繰り返しによる Repetition Pitch を防ぐため）
-    segments = [
-        generate_bandpass_noise(masker_level_db, test_freq, masker_itd_sec, config.MASKER_DURATION),  # M1
-        test_seg.copy(),
-        generate_bandpass_noise(masker_level_db, test_freq, masker_itd_sec, config.MASKER_DURATION),  # M2
-        test_seg.copy(),
-        generate_bandpass_noise(masker_level_db, test_freq, masker_itd_sec, config.MASKER_DURATION),  # M3
-        test_seg.copy(),
-        generate_bandpass_noise(masker_level_db, test_freq, masker_itd_sec, config.MASKER_DURATION),  # M4
-    ]
-
     # 区間長
-    seg_n = segments[0].shape[0]
+    seg_n = test_seg.shape[0]
 
     # 出力バッファ: 7区間 - (7-1)×クロスフェード
     total_n = seg_n * 7 - cf_n * 6
@@ -269,22 +257,26 @@ def build_alternating_stimulus(
     fade_in  = np.linspace(0.0, 1.0, cf_n).reshape(-1, 1)
 
     pos = 0
-    for i, seg in enumerate(segments):
-        if i == 0:
-            # 最初の区間: 全て書き込む（末尾のクロスフェード部分も含む）
-            out[pos: pos + seg_n] += seg
+    # パターン: M T M T M T M (合計7セグメント)
+    for i in range(7):
+        is_masker = (i % 2 == 0)
+        
+        if is_masker:
+            # マスカーは各バーストで独立したノイズを生成 (Running Noise化)
+            seg = generate_bandpass_noise(overall_masker_db, test_freq, masker_itd_sec, config.MASKER_DURATION)
         else:
-            # ① 前区間の末尾（クロスフェード領域）をフェードアウト
-            #    out[pos : pos+cf_n] には前区間の末尾 cf_n サンプルが入っている
-            out[pos: pos + cf_n] *= fade_out
+            seg = test_seg
 
-            # ② 現区間の先頭をフェードインしながら加算
-            out[pos: pos + cf_n] += seg[:cf_n] * fade_in
+        if i == 0:
+            # 最初の区間
+            out[pos : pos + seg_n] += seg
+        else:
+            # クロスフェード処理
+            out[pos : pos + cf_n] *= fade_out
+            out[pos : pos + cf_n] += seg[:cf_n] * fade_in
+            out[pos + cf_n : pos + seg_n] += seg[cf_n:]
 
-            # ③ クロスフェード後の残り本体を加算
-            out[pos + cf_n: pos + seg_n] += seg[cf_n:]
-
-        pos += seg_n - cf_n  # 次区間の開始位置（クロスフェード分だけ手前）
+        pos += seg_n - cf_n
 
     return out.astype(np.float64)
 
@@ -297,7 +289,7 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
     sr        = config.SAMPLE_RATE
-    masker_db = -20.0
+    masker_spectrum_db = -50.0  # dB/Hz
     test_db   = -40.0
     itd_us    = 400e-6   # 400 us ITD
     test_freq = 4000.0   # Hz  (>= 1500 Hz to activate modulation)
@@ -305,7 +297,7 @@ if __name__ == "__main__":
     mod_type  = "Transposed"    # "None" | "SAM" | "Transposed"
 
     stim = build_alternating_stimulus(
-        masker_db, test_db, itd_us,
+        masker_spectrum_db, test_db, itd_us,
         test_freq=test_freq,
         mod_freq=mod_freq,
         mod_type=mod_type,

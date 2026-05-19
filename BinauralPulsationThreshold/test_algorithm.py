@@ -22,11 +22,11 @@ import config
 # AdaptiveTrack を psychopy 依存なしで再現
 # ──────────────────────────────────────────
 class AdaptiveTrack:
-    def __init__(self, track_name, masker_level_db, start_level_offset):
+    def __init__(self, track_name, masker_spectrum_level_db, start_level_offset):
         self.name = track_name
-        self.masker_level = masker_level_db
+        self.masker_spectrum_level = masker_spectrum_level_db
         self.is_track_a = (track_name == "A")
-        self.level = masker_level_db + start_level_offset
+        self.level = masker_spectrum_level_db + start_level_offset
         self.step = config.STEP_LARGE
         self.n_reversals = 0
         self.last_direction = None
@@ -94,9 +94,9 @@ def simulate(seed: int = 42, pulsating_prob: float = 0.6) -> None:
     Track A/B が規定の反転回数に達して終了するかを確認する。
     """
     rng = random.Random(seed)
-    masker_db = -20.0
-    track_a = AdaptiveTrack("A", masker_db, config.TRACK_A_START_LEVEL)
-    track_b = AdaptiveTrack("B", masker_db, config.TRACK_B_START_LEVEL)
+    masker_spectrum_db = -50.0  # dB/Hz
+    track_a = AdaptiveTrack("A", masker_spectrum_db, config.TRACK_A_START_LEVEL)
+    track_b = AdaptiveTrack("B", masker_spectrum_db, config.TRACK_B_START_LEVEL)
 
     print(f"\n--- シミュレーション開始 (seed={seed}, pulsating_prob={pulsating_prob}) ---")
     print(f"{'Trial':>6} {'Track':>6} {'Level(dBFS)':>12} {'Response':>12} {'Rev#':>5} {'Step':>6}")

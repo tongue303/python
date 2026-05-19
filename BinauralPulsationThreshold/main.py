@@ -152,7 +152,7 @@ def main() -> None:
         sl_reference_db = run_phase1(win)
     else:
         print(f"Phase 1 skipped. Using SL reference = {sl_reference_db:.2f} dB FS")
-    masker_level_db = sl_reference_db + config.SL_OFFSET_DB
+    masker_spectrum_level_db = sl_reference_db + config.SL_OFFSET_DB
 
     # ── Phase 2: ITD条件をランダム順に実施 ──
     itd_order = list(range(len(itd_list_us)))
@@ -166,7 +166,7 @@ def main() -> None:
 
         thr_a, thr_b = run_itd_condition(
             win=win,
-            masker_level_db=masker_level_db,
+            masker_spectrum_level_db=masker_spectrum_level_db,
             itd_seconds=itd_sec,
             subject_id=subject_id,
             itd_label_us=itd_us,
@@ -192,7 +192,7 @@ def main() -> None:
 
     print(f"\n=== Experiment finished: {subject_id} ===")
     print(f"Phase 1 SL ref: {sl_reference_db:.2f} dB FS")
-    print(f"Masker level:   {masker_level_db:.2f} dB FS\n")
+    print(f"Masker spec level: {masker_spectrum_level_db:.2f} dB/Hz\n")
     print(f"{'ITD(us)':>10} {'Track A':>10} {'Track B':>10} {'Final Thr':>10}")
     for row in sorted(final_thresholds, key=lambda r: r["itd_us"]):
         print(
