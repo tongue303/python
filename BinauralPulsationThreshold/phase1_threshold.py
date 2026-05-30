@@ -102,16 +102,15 @@ def run_phase1(win: visual.Window) -> float:
     reversal_levels: list[float] = []
 
     trial_no = 0
+    # 音声オブジェクトを1回だけ生成し、再利用することでリソースリークを防ぐ
+    snd = sound.Sound(value=np.zeros((100, 2)), sampleRate=sr, stereo=True)
+
     while n_reversals < config.PHASE1_TOTAL_REVERSALS:
         trial_no += 1
 
         # ── 刺激呈示 ──
         wave = generate_1khz_tone(current_level)
-        snd = sound.Sound(
-            value=wave,
-            sampleRate=sr,
-            stereo=True,
-        )
+        snd.setSound(wave)
 
         prompt.text = "聴いてください..."
         prompt.draw()
@@ -122,7 +121,6 @@ def run_phase1(win: visual.Window) -> float:
         snd.play()
         core.wait(config.PHASE1_DURATION)
         snd.stop()
-        snd = None  # 明示的に解放してオーディオバッファの残留を防ぐ
 
         # ── 音終了後に Y/N 質問を表示 ──
         prompt.text = "聴こえましたか？    [Y] はい    [N] いいえ"

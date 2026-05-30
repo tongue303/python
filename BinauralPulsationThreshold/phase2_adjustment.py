@@ -73,34 +73,37 @@ def run_adjustment_condition(
     current_level = masker_spectrum_level_db + config.ADJUSTMENT_START_LEVEL
     step = config.ADJUSTMENT_STEP
 
-    while True:
+    current_level = float(np.clip(current_level, config.TEST_MIN_LEVEL, config.TEST_MAX_LEVEL))
+    step = config.ADJUSTMENT_STEP
+
+    # 音声オブジェクトを1回だけ生成し、再利用することでリソースリークを防ぐ
+    snd = sound.Sound(value=np.zeros((100, 2)), sampleRate=config.SAMPLE_RATE, stereo=True)
+
+    prompt.text = "音量調整中...\n[↑] 上げる  [↓] 下げる\n[Enter] 決定"
+    prompt.draw()
+    win.flip()
+
+    event.clearEvents()
+    
+    last_key_time = 0.0
+    registered = False
+    
+    while not registered:
         current_level = float(np.clip(current_level, config.TEST_MIN_LEVEL, config.TEST_MAX_LEVEL))
         
-        # ── 刺激生成 ──
-        stim_array = build_alternating_stimulus(
+        # 1ターン分（T-M-T-M-T-M-T-S）の波形を生成・セット
+        arr = build_alternating_stimulus(
             masker_spectrum_level_db, current_level, itd_seconds,
             test_freq=test_freq, mod_freq=mod_freq, mod_type=mod_type, masker_itd_sec=masker_itd_sec
         )
-        snd = sound.Sound(
-            value=stim_array,
-            sampleRate=config.SAMPLE_RATE,
-            stereo=True,
-        )
-
-        prompt.text = f"音量調整中...\n[↑] 上げる  [↓] 下げる\n[Enter] 決定"
-        prompt.draw()
-        win.flip()
-
-        event.clearEvents()
-        snd.play()
+        snd.setSound(arr)
         
-        stim_duration = stim_array.shape[0] / config.SAMPLE_RATE
+        # 再生開始（1ブロック分）
+        snd.play()
+        stim_duration = arr.shape[0] / config.SAMPLE_RATE
         start_time = core.getTime()
         
-        registered = False
-        
-        # 刺激再生中はキー入力を監視する（終了するまで待機）
-        last_key_time = 0.0
+        # 再生中はキー入力を監視する（途中で強制終了せず、最後まで待つことでリズムを崩さない）
         while core.getTime() - start_time < stim_duration:
             keys = event.getKeys(keyList=[config.KEY_UP, config.KEY_DOWN, config.KEY_REGISTER, "escape"])
             for key in keys:
@@ -111,7 +114,6 @@ def run_adjustment_condition(
                 elif key == config.KEY_REGISTER:
                     registered = True
                 else:
-                    # キーリピート（長押し）による音量暴走を防ぐため、150msのデバウンスを設ける
                     now = core.getTime()
                     if now - last_key_time > 0.15:
                         if key == config.KEY_UP:
@@ -119,16 +121,13 @@ def run_adjustment_condition(
                         elif key == config.KEY_DOWN:
                             current_level -= step
                         last_key_time = now
+                        
+            if registered:
+                break
+                
             core.wait(0.01)
             
         snd.stop()
-        snd = None  # 明示的に解放してオーディオバッファの残留を防ぐ
-
-        if registered:
-            break
-            
-        # 短インターバル
-        core.wait(0.1)
 
     return current_level
 

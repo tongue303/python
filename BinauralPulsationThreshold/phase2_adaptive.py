@@ -221,6 +221,9 @@ def run_itd_condition(
     prompt = visual.TextStim(win, text="", height=0.08, color="white")
     trial_global = 0
 
+    # 音声オブジェクトを1回だけ生成し、再利用することでリソースリークを防ぐ
+    snd = sound.Sound(value=np.zeros((100, 2)), sampleRate=config.SAMPLE_RATE, stereo=True)
+
     while not (track_a.is_finished() and track_b.is_finished()):
         # 未終了のTrackからランダム選択
         active = [t for t in [track_a, track_b] if not t.is_finished()]
@@ -236,11 +239,7 @@ def run_itd_condition(
             masker_spectrum_level_db, level, itd_seconds,
             test_freq=test_freq, mod_freq=mod_freq, mod_type=mod_type, masker_itd_sec=masker_itd_sec
         )
-        snd = sound.Sound(
-            value=stim_array,
-            sampleRate=config.SAMPLE_RATE,
-            stereo=True,
-        )
+        snd.setSound(stim_array)
 
         prompt.text = "聴いてください..."
         prompt.draw()
@@ -251,7 +250,6 @@ def run_itd_condition(
         stim_duration = stim_array.shape[0] / config.SAMPLE_RATE
         core.wait(stim_duration)
         snd.stop()
-        snd = None  # 明示的に解放してオーディオバッファの残留を防ぐ
 
         # ── 応答収集 ──
         prompt.text = "Discontinuous (断続) → [D]     Continuous (連続) → [C]"
