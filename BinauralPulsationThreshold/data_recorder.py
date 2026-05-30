@@ -28,17 +28,13 @@ class DataRecorder:
         "mod_type",
         "masker_itd_us",
         "itd_us",
-        "track",
-        "trial_no",
-        "level_db",
-        "response",
-        "is_reversal",
+        "threshold_db",
     ]
 
     def __init__(self) -> None:
         self._rows: list[dict] = []
 
-    def add_trial(
+    def add_result(
         self,
         subject_id: str,
         sl_reference_db: float,
@@ -47,40 +43,10 @@ class DataRecorder:
         mod_type: str,
         masker_itd_us: int,
         itd_us: int,
-        track: str,
-        trial_no: int,
-        level_db: float,
-        response: str,
-        is_reversal: bool,
+        threshold_db: float,
     ) -> None:
         """
-        1試行分のデータを追加する。
-
-        Parameters
-        ----------
-        subject_id : str
-        sl_reference_db : float
-            1kHz聴取閾値基準 (dB FS)
-        test_freq : float
-            テスト信号周波数 (Hz)
-        mod_freq : float
-            変調周波数 (Hz)
-        mod_type : str
-            変調タイプ
-        masker_itd_us : int
-            マスカーのITD (µs)
-        itd_us : int
-            テスト信号のITD (µs)。ラベル用の整数値。
-        track : str
-            "A" または "B"。
-        trial_no : int
-            通し試行番号（全体）。
-        level_db : float
-            提示テスト信号レベル (dB FS)。
-        response : str
-            "pulsating" または "continuous"。
-        is_reversal : bool
-            反転ポイントなら True。
+        1つのITD条件の結果を追加する。
         """
         self._rows.append({
             "subject_id": subject_id,
@@ -90,11 +56,7 @@ class DataRecorder:
             "mod_type": mod_type,
             "masker_itd_us": masker_itd_us,
             "itd_us": itd_us,
-            "track": track,
-            "trial_no": trial_no,
-            "level_db": f"{level_db:.4f}",
-            "response": response,
-            "is_reversal": int(is_reversal),
+            "threshold_db": f"{threshold_db:.4f}",
         })
 
     def save(self, subject_id: str) -> str:
@@ -122,24 +84,3 @@ class DataRecorder:
             writer.writerows(self._rows)
 
         return filename
-
-
-def calculate_final_threshold(threshold_a: float, threshold_b: float) -> float:
-    """
-    Track A・B それぞれの推定閾値から最終パルセーション閾値を算出する。
-
-    算出式: (threshold_A + threshold_B) / 2
-
-    Parameters
-    ----------
-    threshold_a : float
-        Track A の推定閾値 (dB FS)。
-    threshold_b : float
-        Track B の推定閾値 (dB FS)。
-
-    Returns
-    -------
-    float
-        最終パルセーション閾値 (dB FS)。
-    """
-    return (threshold_a + threshold_b) / 2.0

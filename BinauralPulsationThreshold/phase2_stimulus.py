@@ -85,8 +85,8 @@ def generate_bandpass_noise(
     total_n = base_n + shift_n
 
     # 通過帯域: fc/2 ～ fc×2（±1 オクターブ対称）
-    low  = center_freq / 2
-    high = center_freq * 2
+    low  = center_freq / np.sqrt(2)
+    high = center_freq * np.sqrt(2)
     # バタワースフィルタの有効範囲にクランプ（DC・ナイキストを避ける）
     low  = max(low,  20.0)
     high = min(high, sr / 2.0 - 1.0)
@@ -217,7 +217,7 @@ def build_alternating_stimulus(
     masker_itd_sec: float = 0.0,
 ) -> np.ndarray:
     """
-    M-T-M-T-M-T-M の交番刺激（7区間）を合成する。
+    T-M-T-M-T-M-T-S の交番刺激（8区間）を合成する。
 
     隣接区間は CROSSFADE_DURATION 秒のクロスフェードでつなぐ。
 
@@ -238,43 +238,35 @@ def build_alternating_stimulus(
     sr = config.SAMPLE_RATE
     cf_n = int(sr * config.CROSSFADE_DURATION)  # クロスフェードサンプル数
 
-    # マスカーの全体レベルを帯域幅から逆算 (±1オクターブ: fc/2 ～ 2fc)
-    # BW = f_high - f_low = 2*fc - fc/2 = 1.5 * fc
-    bandwidth = 1.5 * test_freq
+    # マスカーの全体レベルを帯域幅から逆算 (fc/sqrt(2) ～ fc*sqrt(2))
+    bandwidth = test_freq * np.sqrt(2) - (test_freq / np.sqrt(2))
     overall_masker_db = masker_spectrum_level_db + 10 * np.log10(bandwidth)
-
+    
     # テスト信号は1試行内で同一波形を使い回す
     test_seg = generate_test_signal(test_level_db, test_itd_seconds, config.TEST_DURATION, test_freq, mod_freq, mod_type)
 
     # 区間長
     seg_n = test_seg.shape[0]
 
-    # 出力バッファ: 7区間 - (7-1)×クロスフェード
-    total_n = seg_n * 7 - cf_n * 6
+    # 出力バッファ: 8区間 - (8-1)×クロスフェード
+    total_n = seg_n * 8 - cf_n * 7
     out = np.zeros((total_n, 2), dtype=np.float64)
 
-    fade_out = np.linspace(1.0, 0.0, cf_n).reshape(-1, 1)
-    fade_in  = np.linspace(0.0, 1.0, cf_n).reshape(-1, 1)
-
     pos = 0
-    # パターン: M T M T M T M (合計7セグメント)
-    for i in range(7):
-        is_masker = (i % 2 == 0)
-        
-        if is_masker:
-            # マスカーは各バーストで独立したノイズを生成 (Running Noise化)
-            seg = generate_bandpass_noise(overall_masker_db, test_freq, masker_itd_sec, config.MASKER_DURATION)
-        else:
+    # パターン: T M T M T M T S (合計8セグメント)
+    for i in range(8):
+        if i == 7:
+            # 無音区間
+            seg = np.zeros((seg_n, 2), dtype=np.float64)
+        elif i % 2 == 0:
+            # T: テスト信号
             seg = test_seg
-
-        if i == 0:
-            # 最初の区間
-            out[pos : pos + seg_n] += seg
         else:
-            # クロスフェード処理
-            out[pos : pos + cf_n] *= fade_out
-            out[pos : pos + cf_n] += seg[:cf_n] * fade_in
-            out[pos + cf_n : pos + seg_n] += seg[cf_n:]
+            # M: マスカーは各バーストで独立したノイズを生成 (Running Noise化)
+            seg = generate_bandpass_noise(overall_masker_db, test_freq, masker_itd_sec, config.MASKER_DURATION)
+
+        # 各セグメントは既にコサインテーパーが適用されているため、単純なオーバーラップ加算でクロスフェードさせる
+        out[pos : pos + seg_n] += seg
 
         pos += seg_n - cf_n
 
@@ -290,9 +282,9 @@ if __name__ == "__main__":
 
     sr        = config.SAMPLE_RATE
     masker_spectrum_db = -50.0  # dB/Hz
-    test_db   = -40.0
+    test_db   = -50.0
     itd_us    = 400e-6   # 400 us ITD
-    test_freq = 4000.0   # Hz  (>= 1500 Hz to activate modulation)
+    test_freq = 500.0   # Hz  (>= 1500 Hz to activate modulation)
     mod_freq  = config.MOD_FREQ
     mod_type  = "Transposed"    # "None" | "SAM" | "Transposed"
 
@@ -317,4 +309,100 @@ if __name__ == "__main__":
     plt.tight_layout()
     plt.savefig("stimulus_waveform.png", dpi=150)
     print(f"Waveform saved to stimulus_waveform.png  ({stim.shape[0]/sr*1000:.1f} ms)")
+
+    # ────────────────────────────────────────────
+    # クロスフェードのランプ係数検証
+    # ────────────────────────────────────────────
+    ramp_n = int(sr * config.RAMP_DURATION)
+    if ramp_n > 0:
+        fade_in_ramp = 0.5 * (1 - np.cos(np.pi * np.arange(ramp_n) / ramp_n))
+        fade_out_ramp = fade_in_ramp[::-1]
+        sum_ramp = fade_in_ramp + fade_out_ramp
+        
+        fig2, ax2 = plt.subplots(figsize=(8, 4))
+        ax2.plot(fade_in_ramp, label="Fade In Ramp", linestyle="--")
+        ax2.plot(fade_out_ramp, label="Fade Out Ramp", linestyle="--")
+        ax2.plot(sum_ramp, label="Sum", linewidth=2, color="black")
+        ax2.set_title("Cosine Crossfade Ramp Verification")
+        ax2.set_xlabel("Samples")
+        ax2.set_ylabel("Gain")
+        ax2.set_ylim(-0.1, 1.2)
+        ax2.legend()
+        plt.tight_layout()
+        plt.savefig("ramp_verification.png", dpi=150)
+        print("Ramp verification saved to ramp_verification.png")
+        print(f"Max deviation of sum from 1.0: {np.max(np.abs(sum_ramp - 1.0)):.2e}")
+
+    # ────────────────────────────────────────────
+    # マスカーのスペクトル密度(dB/Hz) と テスト信号(dB) の検証
+    # ────────────────────────────────────────────
+    from scipy.signal import welch
+
+    # PSD推定のため長めの信号を生成
+    bw = test_freq * np.sqrt(2) - (test_freq / np.sqrt(2))
+    overall_masker_db = masker_spectrum_db + 10 * np.log10(bw)
+    long_masker_duration = 2.0
+    long_masker = generate_bandpass_noise(overall_masker_db, test_freq, itd_seconds=0.0, duration=long_masker_duration)
+    # 純音テスト信号も生成
+    long_test = generate_test_signal(test_db, itd_seconds=0.0, duration=long_masker_duration, test_freq=test_freq, mod_freq=mod_freq, mod_type="None")
+    
+    # 中央の安定した部分を抽出（ランプの影響を除外）
+    margin = int(sr * config.RAMP_DURATION) + int(sr * 0.1)
+    stable_masker = long_masker[margin:-margin, 0]  # Left chのみ使用
+    stable_test = long_test[margin:-margin, 0]
+
+    # Welch法でPSD推定 (nperseg=8192)
+    nperseg = 8192*2
+    df = sr / nperseg
+    f, Pxx_masker = welch(stable_masker, fs=sr, nperseg=nperseg)
+    f, Pxx_test = welch(stable_test, fs=sr, nperseg=nperseg)
+
+    # マスカーの平均PSDを計算
+    f_low = test_freq / np.sqrt(2)
+    f_high = test_freq * np.sqrt(2)
+    valid_idx = (f >= f_low) & (f <= f_high)
+    mean_psd_linear = np.mean(Pxx_masker[valid_idx])
+    measured_spectrum_db = 10 * np.log10(mean_psd_linear)
+
+    # テスト信号（純音）のトータルパワーを計算
+    measured_test_power = np.sum(Pxx_test) * df
+    measured_test_db = 10 * np.log10(measured_test_power)
+
+    print("\n--- Spectrum Level Verification ---")
+    print(f"Target Masker Spectrum Level:   {masker_spectrum_db:.2f} dB/Hz")
+    print(f"Measured Masker Spectrum Level: {measured_spectrum_db:.2f} dB/Hz (Error: {measured_spectrum_db - masker_spectrum_db:.2f} dB)")
+    
+    print("\n--- Test Signal (Tone) Level Verification ---")
+    print(f"Target Test Level:              {test_db:.2f} dB")
+    print(f"Measured Test Level:            {measured_test_db:.2f} dB (Error: {measured_test_db - test_db:.2f} dB)")
+
+    # グラフの描画
+    fig3, ax3 = plt.subplots(figsize=(8, 4))
+    
+    # マスカープロット
+    ax3.plot(f, 10 * np.log10(Pxx_masker + 1e-12), label="Masker PSD", color="blue", lw=1)
+    ax3.axhline(masker_spectrum_db, color="red", linestyle="--", label=f"Masker Target: {masker_spectrum_db} dB/Hz")
+    
+    # テスト信号プロット (パワースペクトル: 密度 × df)
+    ax3.plot(f, 10 * np.log10(Pxx_test * df + 1e-12), label="Test Signal (Power, dB)", color="orange", lw=1, alpha=0.8)
+    # 純音のパワースペクトルのピーク理論値 = test_db
+    ax3.plot(test_freq, test_db, 'ro', label=f"Test Peak Target: {test_db:.1f} dB")
+    
+    ax3.axvline(f_low, color="green", linestyle=":", label=f"f_low: {f_low:.1f} Hz")
+    ax3.axvline(f_high, color="green", linestyle=":", label=f"f_high: {f_high:.1f} Hz")
+    
+    ax3.set_xlim(max(0, f_low - 1000), min(sr/2, f_high + 1000))
+    # Y軸の範囲を純音ピークとマスカー床が入るように調整
+    ylim_min = masker_spectrum_db - 20
+    ylim_max = max(test_db, masker_spectrum_db) + 15
+    ax3.set_ylim(ylim_min, ylim_max)
+    
+    ax3.set_xlabel("Frequency (Hz)")
+    ax3.set_ylabel("Level (dB/Hz for Masker, dB for Tone)")
+    ax3.set_title("Masker Spectrum Level & Test Tone Verification")
+    ax3.legend(loc='upper right', fontsize='small')
+    plt.tight_layout()
+    plt.savefig("psd_verification.png", dpi=150)
+    print("PSD verification saved to psd_verification.png")
+
     plt.show()

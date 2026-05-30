@@ -141,8 +141,8 @@ PsychoPy を起動し、Coder ビューから `main.py` を開いて実行 (Run)
 | 定数 | デフォルト値 | 説明 |
 |---|---|---|
 | `TEST_FREQ` | 500.0 Hz | テスト信号周波数 |
-| `MASKER_DURATION` | 0.165 s | M 区間長 |
-| `TEST_DURATION` | 0.165 s | T 区間長 |
+| `MASKER_DURATION` | 0.135 s | M 区間長 |
+| `TEST_DURATION` | 0.135 s | T 区間長 |
 | `CROSSFADE_DURATION` | 0.020 s | クロスフェード長 |
 | `SL_OFFSET_DB` | 60.0 dB | マスカーレベルのオフセット |
 | `TRACK_A_START_LEVEL` | −10.0 dB | Track A 開始オフセット（マスカー比）|

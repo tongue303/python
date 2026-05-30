@@ -25,9 +25,9 @@ from psychopy import visual, core, gui, event
 
 import config
 from phase1_threshold import run_phase1
-from phase2_adaptive import run_itd_condition
-from data_recorder import DataRecorder, calculate_final_threshold
-from plot_results import load_csv, calc_thresholds, plot_all
+from phase2_adjustment import run_adjustment_condition
+from data_recorder import DataRecorder
+from plot_results import load_csv, plot_all
 
 
 # ────────────────────────────────────────────
@@ -152,7 +152,8 @@ def main() -> None:
         sl_reference_db = run_phase1(win)
     else:
         print(f"Phase 1 skipped. Using SL reference = {sl_reference_db:.2f} dB FS")
-    masker_spectrum_level_db = sl_reference_db + config.SL_OFFSET_DB
+    # ユーザー要望: Target_SL + Phase1閾値
+    masker_spectrum_level_db = sl_reference_db + config.TARGET_SL
 
     # ── Phase 2: ITD条件をランダム順に実施 ──
     itd_order = list(range(len(itd_list_us)))
@@ -164,13 +165,12 @@ def main() -> None:
         itd_us = itd_list_us[idx]
         itd_sec = itd_list_sec[idx]
 
-        thr_a, thr_b = run_itd_condition(
+        final_thr = run_adjustment_condition(
             win=win,
             masker_spectrum_level_db=masker_spectrum_level_db,
             itd_seconds=itd_sec,
             subject_id=subject_id,
             itd_label_us=itd_us,
-            recorder=recorder,
             sl_reference_db=sl_reference_db,
             test_freq=test_freq,
             mod_freq=mod_freq,
@@ -179,11 +179,19 @@ def main() -> None:
             masker_itd_us=masker_itd,
         )
 
-        final_thr = calculate_final_threshold(thr_a, thr_b)
+        recorder.add_result(
+            subject_id=subject_id,
+            sl_reference_db=sl_reference_db,
+            test_freq=test_freq,
+            mod_freq=mod_freq,
+            mod_type=mod_type,
+            masker_itd_us=masker_itd,
+            itd_us=itd_us,
+            threshold_db=final_thr,
+        )
+
         final_thresholds.append({
             "itd_us": itd_us,
-            "threshold_A_dBFS": thr_a,
-            "threshold_B_dBFS": thr_b,
             "final_threshold_dBFS": final_thr,
         })
 
@@ -193,13 +201,11 @@ def main() -> None:
     print(f"\n=== Experiment finished: {subject_id} ===")
     print(f"Phase 1 SL ref: {sl_reference_db:.2f} dB FS")
     print(f"Masker spec level: {masker_spectrum_level_db:.2f} dB/Hz\n")
-    print(f"{'ITD(us)':>10} {'Track A':>10} {'Track B':>10} {'Final Thr':>10}")
+    print(f"{'ITD(us)':>10} {'Threshold(dB)':>15}")
     for row in sorted(final_thresholds, key=lambda r: r["itd_us"]):
         print(
             f"{row['itd_us']:>10} "
-            f"{row['threshold_A_dBFS']:>10.2f} "
-            f"{row['threshold_B_dBFS']:>10.2f} "
-            f"{row['final_threshold_dBFS']:>10.2f}"
+            f"{row['final_threshold_dBFS']:>15.2f}"
         )
     print(f"\nCSV saved: {csv_path}")
 
@@ -222,9 +228,8 @@ def main() -> None:
     # ── 結果グラフを自動生成 ──
     print("Generating result plots...")
     df_result, _ = load_csv(csv_path)
-    thr_df, final_df = calc_thresholds(df_result)
     stem = os.path.splitext(csv_path)[0]
-    plot_all(df_result, thr_df, final_df, stem)
+    plot_all(df_result, stem)
 
     core.quit()
 

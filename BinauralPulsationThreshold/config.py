@@ -25,33 +25,31 @@ PHASE1_MIN_LEVEL: float = -100.0    # 提示レベル下限 (dB FS)
 PHASE1_MAX_LEVEL: float = 0.0       # 提示レベル上限 (dB FS)
 
 # ---- Phase 2: 刺激音 ----
-MASKER_DURATION: float = 0.165  # マスカー1区間の長さ (秒)
-TEST_DURATION: float = 0.165    # テスト信号1区間の長さ (秒)
+MASKER_DURATION: float = 0.145  # マスカー1区間の長さ (秒)
+TEST_DURATION: float = 0.145    # テスト信号1区間の長さ (秒)
 CROSSFADE_DURATION: float = 0.020   # クロスフェード長さ (秒)
 TEST_FREQ: float = 500.0        # テスト信号周波数 (Hz)
 MOD_FREQ: float = 250.0         # 変調周波数 (Hz)
 MOD_TYPE: str = "None"    # 変調タイプ ("None", "SAM", "Transposed")
 MASKER_ITD_US: int = 0          # マスカーのITD (µs)
-SL_OFFSET_DB: float = 50.0      # マスカーレベル = Phase1閾値 + この値 (dB)
-# 交番刺激パターン: M-T-M-T-M-T-M (M=4回, T=3回)
-N_MASKER: int = 4
-N_TEST: int = 3
+TARGET_SL: float = 40.0         # マスカーの目標SL (Sensation Level または Stimulus Level)
+# 交番刺激パターン: T-M-T-M-T-M-T-S (T=4回, M=3回, S=1回)
+N_MASKER: int = 3
+N_TEST: int = 4
+N_SILENCE: int = 1
 
-# ---- Phase 2: Jesteadt適応アルゴリズム ----
-TRACK_A_START_LEVEL: float = 10.0  # Track A 開始レベル (マスカーレベルからのオフセット dB)
-TRACK_B_START_LEVEL: float = -20.0  # Track B 開始レベル (マスカーレベルからのオフセット dB)
-STEP_LARGE: float = 2.0         # 初期ステップ幅 (dB)
-STEP_SMALL: float = 1.0         # 収束後ステップ幅 (dB)
-STEP_CHANGE_REVERSALS: int = 1  # ステップ縮小に必要な反転回数
-TOTAL_REVERSALS: int = 4        # Track終了に必要な反転回数
+# ---- Phase 2: 調整法（Method of Adjustment） ----
+ADJUSTMENT_START_LEVEL: float =  10.0  # 開始レベル (マスカーレベルからのオフセット dB)
+ADJUSTMENT_STEP: float = 1.0           # 1回のキー入力での音量変化ステップ (dB)
 TEST_MIN_LEVEL: float = -80.0   # テスト信号レベル下限 (dB FS)
 TEST_MAX_LEVEL: float = 0.0     # テスト信号レベル上限 (dB FS)
 
 # ---- キー設定 ----
-KEY_PHASE1_YES = "y"        # Phase1: 聞こえた（Y キー）
-KEY_PHASE1_NO  = "n"        # Phase1: 聞こえなかった（N キー）
-KEY_PULSATING = "d"         # Phase2: 断続 Discontinuous
-KEY_CONTINUOUS = "c"        # Phase2: 連続 Continuous
+KEY_PHASE1_YES = "y"        # Phase1: 聞こえた
+KEY_PHASE1_NO  = "n"        # Phase1: 聞こえなかった
+KEY_UP = "up"               # Phase2: 音量を上げる
+KEY_DOWN = "down"           # Phase2: 音量を下げる
+KEY_REGISTER = "return"     # Phase2: 決定（登録）
 
 # ---- データ保存 ----
 DATA_DIR: str = "data"
@@ -65,13 +63,13 @@ INSTRUCTION_TEXT = (
     "音が聞こえたら '{KEY_YES}' キーを、\n"
     "聞こえなかったら '{KEY_NO}' キーを押してください。\n\n"
     "[ Phase 2 ]\n"
-    "ノイズ（ジャージャー音）とテスト音（ピー音や変調音）が交互に鳴ります。\n"
-    "テスト音が途切れず「連続」して聞こえる場合は '{KEY_C}' キーを、\n"
-    "テスト音がノイズの間に「断続」して聞こえる場合は '{KEY_D}' キーを押してください。\n\n"
+    "ノイズ（ジャージャー音）とテスト音が交互に鳴るパターンが繰り返されます。\n"
+    "上下の矢印キー（↑ / ↓）を押すと、テスト音の大きさが変わります。\n"
+    "テスト音がノイズの間で途切れず「連続」して聞こえる境界（パルセーション閾値）\n"
+    "になるように音量を調整してください。\n"
+    "見つけたら [Enter] キーを押して登録し、次の条件に進みます。\n\n"
     "準備ができたら [Space] キーを押して開始してください。"
 ).format(
     KEY_YES=KEY_PHASE1_YES.upper(),
     KEY_NO=KEY_PHASE1_NO.upper(),
-    KEY_C=KEY_CONTINUOUS.upper(),
-    KEY_D=KEY_PULSATING.upper()
 )
