@@ -32,24 +32,31 @@ TEST_FREQ: float = 500.0        # テスト信号周波数 (Hz)
 MOD_FREQ: float = 250.0         # 変調周波数 (Hz)
 MOD_TYPE: str = "None"    # 変調タイプ ("None", "SAM", "Transposed")
 MASKER_ITD_US: int = 0          # マスカーのITD (µs)
-TARGET_SL: float = 40.0         # マスカーの目標SL (Sensation Level または Stimulus Level)
+TARGET_SL: float = 50.0         # マスカーの目標SL (Sensation Level または Stimulus Level)
 # 交番刺激パターン: T-M-T-M-T-M-T-S (T=4回, M=3回, S=1回)
 N_MASKER: int = 3
 N_TEST: int = 4
 N_SILENCE: int = 1
 
-# ---- Phase 2: 調整法（Method of Adjustment） ----
-ADJUSTMENT_START_LEVEL: float =  10.0  # 開始レベル (マスカーレベルからのオフセット dB)
-ADJUSTMENT_STEP: float = 1.0           # 1回のキー入力での音量変化ステップ (dB)
+# ---- Phase 2: 1-up/1-down 適応法 (Experiment C 準拠) ----
+ADAPTIVE_INITIAL_STEP_SIZE: float = 6.0
+ADAPTIVE_SECOND_STEP_SIZE: float = 3.0
+ADAPTIVE_FINAL_STEP_SIZE: float = 0.5
+ADAPTIVE_REVERSAL_TRIGGER_1: int = 2
+ADAPTIVE_REVERSAL_TRIGGER_2: int = 4
+ADAPTIVE_MAX_REVERSALS: int = 10
+ADAPTIVE_NUM_REVERSALS_FOR_MEAN: int = 6
+ADAPTIVE_INITIAL_TARGET_OFFSET: float = 12.0  # マスカーレベルからの初期オフセット目安
+ADAPTIVE_ROVING_RANGE: float = 3.0            # ±3dBのロービング（ジッター）幅
+
 TEST_MIN_LEVEL: float = -80.0   # テスト信号レベル下限 (dB FS)
 TEST_MAX_LEVEL: float = 0.0     # テスト信号レベル上限 (dB FS)
 
 # ---- キー設定 ----
 KEY_PHASE1_YES = "y"        # Phase1: 聞こえた
 KEY_PHASE1_NO  = "n"        # Phase1: 聞こえなかった
-KEY_UP = "up"               # Phase2: 音量を上げる
-KEY_DOWN = "down"           # Phase2: 音量を下げる
-KEY_REGISTER = "return"     # Phase2: 決定（登録）
+KEY_CONTINUOUS = "c"        # Phase2: 連続して聞こえた
+KEY_INTERRUPTED = "i"       # Phase2: 途切れて聞こえた
 
 # ---- データ保存 ----
 DATA_DIR: str = "data"
@@ -63,13 +70,13 @@ INSTRUCTION_TEXT = (
     "音が聞こえたら '{KEY_YES}' キーを、\n"
     "聞こえなかったら '{KEY_NO}' キーを押してください。\n\n"
     "[ Phase 2 ]\n"
-    "ノイズ（ジャージャー音）とテスト音が交互に鳴るパターンが繰り返されます。\n"
-    "上下の矢印キー（↑ / ↓）を押すと、テスト音の大きさが変わります。\n"
-    "テスト音がノイズの間で途切れず「連続」して聞こえる境界（パルセーション閾値）\n"
-    "になるように音量を調整してください。\n"
-    "見つけたら [Enter] キーを押して登録し、次の条件に進みます。\n\n"
+    "ノイズ（ジャージャー音）とテスト音が交互に鳴るパターンが1回再生されます。\n"
+    "テスト音がノイズの間で途切れず「連続」して聞こえたら '{KEY_C}' キーを、\n"
+    "途切れて聞こえたら '{KEY_I}' キーを押してください。\n\n"
     "準備ができたら [Space] キーを押して開始してください。"
 ).format(
     KEY_YES=KEY_PHASE1_YES.upper(),
     KEY_NO=KEY_PHASE1_NO.upper(),
+    KEY_C=KEY_CONTINUOUS.upper(),
+    KEY_I=KEY_INTERRUPTED.upper(),
 )

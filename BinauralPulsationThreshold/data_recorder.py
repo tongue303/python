@@ -9,6 +9,7 @@ data_recorder.py
 
 import csv
 import os
+import json
 from datetime import datetime
 
 import config
@@ -28,13 +29,19 @@ class DataRecorder:
         "mod_type",
         "masker_itd_us",
         "itd_us",
+        "track",
+        "trial_no",
+        "level_db",
+        "response",
+        "is_reversal",
         "threshold_db",
+        "reversal_levels"
     ]
 
     def __init__(self) -> None:
         self._rows: list[dict] = []
 
-    def add_result(
+    def add_trial(
         self,
         subject_id: str,
         sl_reference_db: float,
@@ -43,10 +50,14 @@ class DataRecorder:
         mod_type: str,
         masker_itd_us: int,
         itd_us: int,
-        threshold_db: float,
+        track: str,
+        trial_no: int,
+        level_db: float,
+        response: str,
+        is_reversal: bool,
     ) -> None:
         """
-        1つのITD条件の結果を追加する。
+        1試行のデータを追加する。
         """
         self._rows.append({
             "subject_id": subject_id,
@@ -56,8 +67,25 @@ class DataRecorder:
             "mod_type": mod_type,
             "masker_itd_us": masker_itd_us,
             "itd_us": itd_us,
-            "threshold_db": f"{threshold_db:.4f}",
+            "track": track,
+            "trial_no": trial_no,
+            "level_db": round(level_db, 2),
+            "response": response,
+            "is_reversal": is_reversal,
+            "threshold_db": "",
+            "reversal_levels": ""
         })
+
+    def update_block_metadata(self, itd_us: int, threshold_db: float, reversal_levels: list[float]) -> None:
+        """
+        特定のITD条件（ブロック）に対する最終的な閾値と反転レベルのリストを、
+        そのITD条件の全試行行に追記する。
+        """
+        rev_str = json.dumps([round(r, 2) for r in reversal_levels])
+        for row in self._rows:
+            if row["itd_us"] == itd_us:
+                row["threshold_db"] = round(threshold_db, 4)
+                row["reversal_levels"] = rev_str
 
     def save(self, subject_id: str) -> str:
         """

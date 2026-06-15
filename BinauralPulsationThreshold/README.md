@@ -1,6 +1,6 @@
 # Binaural Pulsation Threshold Measurement
 
-両耳間時間差 (ITD) をパラメータとした **パルセーション閾値** を、Jesteadt (1980) の2系列適応的測定法で計測する PsychoPy 実験プログラムです。
+両耳間時間差 (ITD) をパラメータとした **パルセーション閾値** を、Experiment C に準拠した **1-up/1-down 階段法 (Staircase method)** で計測する PsychoPy 実験プログラムです。
 
 ---
 
@@ -29,7 +29,8 @@
 | **独立変数** | テスト信号の微細構造 ITD（µs 単位でダイアログから入力）|
 | **従属変数** | パルセーション閾値（テスト信号レベル dB FS）|
 | **マスカーレベル** | Phase 1 で測定した 1 kHz 聴取閾値 +60 dB SL |
-| **課題** | 「断続 (Discontinuous)」または「連続 (Continuous)」の 2 択判断 |
+| **課題** | 「連続 (Continuous)」または「途切れ (Interrupted)」の 2 択判断 |
+| **測定アルゴリズム**| 1-up/1-down 階段法 (Staircase Method)|
 
 ---
 
@@ -41,11 +42,9 @@ BinauralPulsationThreshold/
 ├── config.py             # 全スクリプト共通の設定値
 ├── phase1_threshold.py   # Phase 1: 1 kHz 聴取閾値測定
 ├── phase2_stimulus.py    # Phase 2: 交番刺激音の生成
-├── phase2_adaptive.py    # Phase 2: Jesteadt 2 系列適応アルゴリズム
-├── data_recorder.py      # 試行データの蓄積・CSV 書き出し
-├── plot_results.py       # 結果の読み込み・可視化
-├── test_algorithm.py     # アルゴリズム動作確認用スクリプト
-├── initPlan.md           # 設計計画書
+├── phase2_1up1down.py    # Phase 2: 1-up/1-down 階段法 (Experiment C 準拠)
+├── data_recorder.py      # 試行データの蓄積・CSV 書き出し (Long Format対応)
+├── plot_results.py       # 結果の読み込み・可視化 (Staircase Plot対応)
 └── data/                 # 実験データ保存先（自動生成）
     └── <SubjectID>_<timestamp>.csv
 ```
@@ -62,8 +61,6 @@ BinauralPulsationThreshold/
 | pandas | CSV 読み込み・集計 |
 | matplotlib | 結果グラフ描画 |
 
-PsychoPy のスタンドアロン版を使用する場合は、同梱の Python 環境が上記ライブラリを含みます。
-
 ---
 
 ## 実験の流れ
@@ -76,14 +73,16 @@ PsychoPy のスタンドアロン版を使用する場合は、同梱の Python 
  ├─ Phase 1: 1 kHz 純音の聴取閾値測定（2-down 1-up 階段法）
  │    └─ 測定閾値 → マスカーレベル = 閾値 + 60 dB SL
  │
- ├─ Phase 2: ITD 条件をランダム順に実施
- │    ├─ Track A（高レベル → 下降）: 「断続 71%」の閾値を探索
- │    └─ Track B（低レベル → 上昇）: 「連続 71%」の閾値を探索
- │         ※ Track A / B はランダムにインターリーブ提示
+ ├─ Phase 2: ITD 条件をランダム順に実施 (1-up/1-down 階段法)
+ │    ├─ 1試行ごとに M-T-M-T-M-T-M の刺激パターンを再生
+ │    ├─ 回答: 「連続 (Continuous)」  → ターゲットレベル UP (+ステップ幅)
+ │    └─ 回答: 「途切れ (Interrupted)」 → ターゲットレベル DOWN (-ステップ幅)
+ │         ※ 反転回数に応じてステップ幅が縮小 (6.0 -> 3.0 -> 0.5 dB)
+ │         ※ 反転が 10 回に達した時点で終了
  │
  ├─ CSV 保存（data/<SubjectID>_<timestamp>.csv）
  │
- └─ 結果グラフ自動生成 → PNG 保存
+ └─ 結果グラフ自動生成 (階段法グラフ & サマリー) → PNG 保存
 ```
 
 ---
@@ -108,8 +107,8 @@ PsychoPy を起動し、Coder ビューから `main.py` を開いて実行 (Run)
 |---|---|---|
 | Phase 1 | `Y` | 聴こえた |
 | Phase 1 | `N` | 聴こえなかった |
-| Phase 2 | `D` | Discontinuous（断続）|
-| Phase 2 | `C` | Continuous（連続）|
+| Phase 2 | `C` | Continuous（連続して聞こえた）|
+| Phase 2 | `I` | Interrupted（途切れて聞こえた）|
 | 共通 | `Escape` | 実験を中断・終了 |
 
 ---
@@ -118,44 +117,23 @@ PsychoPy を起動し、Coder ビューから `main.py` を開いて実行 (Run)
 
 主要なパラメータを下表に示します。変更は `config.py` を直接編集してください。
 
-### 音声基本設定
+### Phase 2（適応的測定: 1-up/1-down 階段法）
 
 | 定数 | デフォルト値 | 説明 |
 |---|---|---|
-| `SAMPLE_RATE` | 44100 Hz | サンプリングレート |
-| `RAMP_DURATION` | 0.020 s | コサインテーパー長 |
-
-### Phase 1（1 kHz 聴取閾値）
-
-| 定数 | デフォルト値 | 説明 |
-|---|---|---|
-| `PHASE1_FREQ` | 1000.0 Hz | 純音周波数 |
-| `PHASE1_DURATION` | 0.500 s | 1 呈示あたりの長さ |
-| `PHASE1_START_LEVEL` | −20.0 dB FS | 開始レベル |
-| `PHASE1_STEP_LARGE` | 4.0 dB | 初期ステップ幅 |
-| `PHASE1_STEP_SMALL` | 2.0 dB | 収束後ステップ幅 |
-| `PHASE1_TOTAL_REVERSALS` | 8 回 | 終了に必要な反転回数 |
-
-### Phase 2（適応的測定）
-
-| 定数 | デフォルト値 | 説明 |
-|---|---|---|
-| `TEST_FREQ` | 500.0 Hz | テスト信号周波数 |
-| `MASKER_DURATION` | 0.135 s | M 区間長 |
-| `TEST_DURATION` | 0.135 s | T 区間長 |
-| `CROSSFADE_DURATION` | 0.020 s | クロスフェード長 |
-| `SL_OFFSET_DB` | 60.0 dB | マスカーレベルのオフセット |
-| `TRACK_A_START_LEVEL` | −10.0 dB | Track A 開始オフセット（マスカー比）|
-| `TRACK_B_START_LEVEL` | −50.0 dB | Track B 開始オフセット（マスカー比）|
-| `STEP_LARGE` | 2.0 dB | 初期ステップ幅 |
-| `STEP_SMALL` | 1.0 dB | 収束後ステップ幅 |
-| `TOTAL_REVERSALS` | 8 回 | Track 終了に必要な反転回数 |
+| `ADAPTIVE_INITIAL_STEP_SIZE`| 6.0 dB | 初期ステップ幅 |
+| `ADAPTIVE_SECOND_STEP_SIZE` | 3.0 dB | 2回反転後のステップ幅 |
+| `ADAPTIVE_FINAL_STEP_SIZE`  | 0.5 dB | 4回反転後のステップ幅 |
+| `ADAPTIVE_MAX_REVERSALS`    | 10 回 | ブロック終了に必要な反転回数 |
+| `ADAPTIVE_NUM_REVERSALS_FOR_MEAN` | 6 回 | 閾値計算に用いる反転ポイントの数 |
+| `ADAPTIVE_INITIAL_TARGET_OFFSET` | 12.0 dB | マスカーレベルに対する初期ターゲットレベルの目安 |
+| `ADAPTIVE_ROVING_RANGE`     | 3.0 dB | 初期レベルに加えるジッター（カンニング防止）幅 |
 
 ---
 
 ## データ出力
 
-実験終了後、`data/` フォルダに CSV が保存されます。
+実験終了後、`data/` フォルダに CSV が保存されます。各試行ごとのデータが1行に記録されます（Long Format）。
 
 **ファイル名**: `data/<SubjectID>_<YYYYMMDD_HHMMSS>.csv`
 
@@ -164,20 +142,19 @@ PsychoPy を起動し、Coder ビューから `main.py` を開いて実行 (Run)
 | 列名 | 型 | 内容 |
 |---|---|---|
 | `subject_id` | str | 被験者 ID |
+| `sl_reference_db` | float | 1kHz閾値 |
 | `itd_us` | int | ITD 条件（µs）|
-| `track` | str | `A` または `B` |
-| `trial_no` | int | 全体試行番号 |
+| `track` | str | トラック名 (`1up1down`) |
+| `trial_no` | int | 試行番号 |
 | `level_db` | float | 提示テスト信号レベル（dB FS）|
-| `response` | str | `pulsating` / `continuous` |
-| `is_reversal` | int | 反転ポイントなら `1`、それ以外 `0` |
+| `response` | str | `continuous` / `interrupted` |
+| `is_reversal`| bool | 反転ポイントなら `True`、それ以外 `False` |
+| `threshold_db` | float | 算出された最終閾値（各ITDの全ての行に追記される） |
+| `reversal_levels` | str | 記録された10個の反転レベル（JSON配列文字列）|
 
 ### 閾値の算出方法
 
-```
-Track A 閾値 = 最終ステップ幅での反転レベルの平均
-Track B 閾値 = 最終ステップ幅での反転レベルの平均
-最終パルセーション閾値 = (Track A 閾値 + Track B 閾値) / 2
-```
+最後の6回分（10回反転中、インデックス4〜9）の反転時ターゲットレベルの算術平均をパルセーション閾値とします。
 
 ---
 
@@ -187,15 +164,8 @@ Track B 閾値 = 最終ステップ幅での反転レベルの平均
 
 | ファイル名 | 内容 |
 |---|---|
-| `data/<stem>_history.png` | 各 ITD 条件の試行履歴（Track A/B ライン、反転点マーカー、閾値水平線）|
-| `data/<stem>_summary.png` | 全 ITD 条件の最終閾値まとめ棒グラフ |
-
-### 単独実行
-
-```bash
-python plot_results.py                    # data/ 内の最新 CSV を自動選択
-python plot_results.py data/P01_xxx.csv   # ファイルを指定
-```
+| `data/<stem>_staircase_<itd>us.png` | 各 ITD 条件の試行ごとの階段法の推移グラフ。Continuous / Interrupted の応答や反転ポイント、最終閾値のラインが可視化されます。 |
+| `data/<stem>_summary.png` | 全 ITD 条件の最終閾値を比較する折れ線グラフ |
 
 ---
 
@@ -204,15 +174,16 @@ python plot_results.py data/P01_xxx.csv   # ファイルを指定
 各モジュールは単独実行でも動作確認が可能です。
 
 ```bash
-# Phase 1 動作確認（PsychoPy ウィンドウで閾値測定を単独実行）
+# Phase 1 動作確認
 python phase1_threshold.py
 
-# Phase 2 アルゴリズム確認（ランダム応答でシミュレーション、GUI 不要）
-python phase2_adaptive.py
+# Phase 2 1-up/1-down 階段法アルゴリズム確認（ランダム応答でシミュレーション）
+python phase2_1up1down.py
 ```
 
 ---
 
 ## 参考文献
 
-- Jesteadt, W. (1980). An adaptive procedure for subjective judgments. *Perception & Psychophysics*, 28(1), 85–88.
+- Experiment C 仕様 (1-up/1-down staircase method)
+
