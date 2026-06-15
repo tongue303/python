@@ -1,4 +1,0 @@
-trial,condition,response,correct,fc,ft,Lt,reversal,timestamp
-1,signal_interval=1,1,1,1100.0,500.0,-35.00,0,2025-08-30 20:42:00
-2,signal_interval=2,1,0,1100.0,500.0,-37.00,1,2025-08-30 20:42:06
-3,signal_interval=1,1,1,1100.0,500.0,-35.00,0,2025-08-30 20:42:12
