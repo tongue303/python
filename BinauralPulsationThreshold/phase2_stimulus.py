@@ -248,15 +248,18 @@ def build_alternating_stimulus(
     # 区間長
     seg_n = test_seg.shape[0]
 
-    # 出力バッファ: 8区間 - (8-1)×クロスフェード
-    total_n = seg_n * 8 - cf_n * 7
+    # セグメント数の計算: N_TEST回のテスト信号 + (N_TEST-1)回のマスカー + 1回の無音 = 2 * N_TEST
+    total_segments = 2 * config.N_TEST
+
+    # 出力バッファ: total_segments区間 - (total_segments-1)×クロスフェード
+    total_n = seg_n * total_segments - cf_n * (total_segments - 1)
     out = np.zeros((total_n, 2), dtype=np.float64)
 
     pos = 0
-    # パターン: T M T M T M T S (合計8セグメント)
-    for i in range(8):
-        if i == 7:
-            # 無音区間
+    # パターン: T M T M ... S (合計 total_segments セグメント)
+    for i in range(total_segments):
+        if i == total_segments - 1:
+            # 無音区間 (S)
             seg = np.zeros((seg_n, 2), dtype=np.float64)
         elif i % 2 == 0:
             # T: テスト信号
@@ -269,6 +272,13 @@ def build_alternating_stimulus(
         out[pos : pos + seg_n] += seg
 
         pos += seg_n - cf_n
+
+    # クリップ判定（振幅が1.0以上になると音声出力時に波形が歪む）
+    if np.max(np.abs(out)) > 0.99:
+        raise ValueError(
+            "生成された刺激音の振幅がクリップの閾値（1.0）を超えました。\n"
+            "config.TARGET_SL を下げるか、PCの出力音量を下げてアンプ側のゲインを上げてください。"
+        )
 
     return out.astype(np.float64)
 

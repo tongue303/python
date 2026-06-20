@@ -32,10 +32,11 @@ TEST_FREQ: float = 500.0        # テスト信号周波数 (Hz)
 MOD_FREQ: float = 250.0         # 変調周波数 (Hz)
 MOD_TYPE: str = "None"    # 変調タイプ ("None", "SAM", "Transposed")
 MASKER_ITD_US: int = 0          # マスカーのITD (µs)
-TARGET_SL: float = 50.0         # マスカーの目標SL (Sensation Level または Stimulus Level)
-# 交番刺激パターン: T-M-T-M-T-M-T-S (T=4回, M=3回, S=1回)
-N_MASKER: int = 3
-N_TEST: int = 4
+TARGET_SL: float = 40.0         # マスカーの目標SL (Sensation Level または Stimulus Level)
+# 交番刺激パターン (T-M-T-M-...-S)
+# N_TEST の回数に応じて全体のセグメント数が自動的に決定されます。
+N_TEST: int = 6
+N_MASKER: int = N_TEST - 1
 N_SILENCE: int = 1
 
 # ---- Phase 2: 1-up/1-down 適応法 (Experiment C 準拠) ----
@@ -46,7 +47,7 @@ ADAPTIVE_REVERSAL_TRIGGER_1: int = 2
 ADAPTIVE_REVERSAL_TRIGGER_2: int = 4
 ADAPTIVE_MAX_REVERSALS: int = 10
 ADAPTIVE_NUM_REVERSALS_FOR_MEAN: int = 6
-ADAPTIVE_INITIAL_TARGET_OFFSET: float = 12.0  # マスカーレベルからの初期オフセット目安
+ADAPTIVE_INITIAL_TARGET_OFFSET: float = 20.0  # マスカーレベルからの初期オフセット目安
 ADAPTIVE_ROVING_RANGE: float = 3.0            # ±3dBのロービング（ジッター）幅
 
 TEST_MIN_LEVEL: float = -80.0   # テスト信号レベル下限 (dB FS)
