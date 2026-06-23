@@ -55,17 +55,17 @@ export const KEY_CONTINUOUS = "c";
 export const KEY_INTERRUPTED = "i";
 
 // ---- 教示文 ----
-export const INSTRUCTION_TEXT = `====== 全体説明 ======
-この実験ではパルセーション閾値の測定を行います。
+export const INSTRUCTION_TEXT = `====== Instructions ======
+In this experiment, we will measure your pulsation threshold.
 
 [ Phase 1 ]
-1000Hzの純音が聞こえる最小の音の大きさを測定します。
-音が聞こえたら '${KEY_PHASE1_YES.toUpperCase()}' キーを、
-聞こえなかったら '${KEY_PHASE1_NO.toUpperCase()}' キーを押してください。
+We will measure the minimum volume at which you can hear a 1000Hz pure tone.
+Press the '${KEY_PHASE1_YES.toUpperCase()}' key if you heard the sound.
+Press the '${KEY_PHASE1_NO.toUpperCase()}' key if you did not hear it.
 
 [ Phase 2 ]
-ノイズ（ジャージャー音）とテスト音が交互に鳴るパターンが1回再生されます。
-テスト音がノイズの間で途切れず「連続」して聞こえたら '${KEY_CONTINUOUS.toUpperCase()}' キーを、
-途切れて聞こえたら '${KEY_INTERRUPTED.toUpperCase()}' キーを押してください。
+A pattern of alternating noise and a test tone will be played once.
+Press the '${KEY_CONTINUOUS.toUpperCase()}' key if the test tone sounded "continuous" between the noise bursts.
+Press the '${KEY_INTERRUPTED.toUpperCase()}' key if it sounded "interrupted".
 
-準備ができたら [Space] キーを押して開始してください。`;
+Press the [Space] key to begin when you are ready.`;
