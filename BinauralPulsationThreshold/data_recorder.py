@@ -9,6 +9,7 @@ data_recorder.py
 
 import csv
 import os
+import json
 from datetime import datetime
 
 import config
@@ -33,6 +34,8 @@ class DataRecorder:
         "level_db",
         "response",
         "is_reversal",
+        "threshold_db",
+        "reversal_levels"
     ]
 
     def __init__(self) -> None:
@@ -54,33 +57,7 @@ class DataRecorder:
         is_reversal: bool,
     ) -> None:
         """
-        1試行分のデータを追加する。
-
-        Parameters
-        ----------
-        subject_id : str
-        sl_reference_db : float
-            1kHz聴取閾値基準 (dB FS)
-        test_freq : float
-            テスト信号周波数 (Hz)
-        mod_freq : float
-            変調周波数 (Hz)
-        mod_type : str
-            変調タイプ
-        masker_itd_us : int
-            マスカーのITD (µs)
-        itd_us : int
-            テスト信号のITD (µs)。ラベル用の整数値。
-        track : str
-            "A" または "B"。
-        trial_no : int
-            通し試行番号（全体）。
-        level_db : float
-            提示テスト信号レベル (dB FS)。
-        response : str
-            "pulsating" または "continuous"。
-        is_reversal : bool
-            反転ポイントなら True。
+        1試行のデータを追加する。
         """
         self._rows.append({
             "subject_id": subject_id,
@@ -92,10 +69,23 @@ class DataRecorder:
             "itd_us": itd_us,
             "track": track,
             "trial_no": trial_no,
-            "level_db": f"{level_db:.4f}",
+            "level_db": round(level_db, 2),
             "response": response,
-            "is_reversal": int(is_reversal),
+            "is_reversal": is_reversal,
+            "threshold_db": "",
+            "reversal_levels": ""
         })
+
+    def update_block_metadata(self, itd_us: int, threshold_db: float, reversal_levels: list[float]) -> None:
+        """
+        特定のITD条件（ブロック）に対する最終的な閾値と反転レベルのリストを、
+        そのITD条件の全試行行に追記する。
+        """
+        rev_str = json.dumps([round(r, 2) for r in reversal_levels])
+        for row in self._rows:
+            if row["itd_us"] == itd_us:
+                row["threshold_db"] = round(threshold_db, 4)
+                row["reversal_levels"] = rev_str
 
     def save(self, subject_id: str) -> str:
         """
@@ -122,24 +112,3 @@ class DataRecorder:
             writer.writerows(self._rows)
 
         return filename
-
-
-def calculate_final_threshold(threshold_a: float, threshold_b: float) -> float:
-    """
-    Track A・B それぞれの推定閾値から最終パルセーション閾値を算出する。
-
-    算出式: (threshold_A + threshold_B) / 2
-
-    Parameters
-    ----------
-    threshold_a : float
-        Track A の推定閾値 (dB FS)。
-    threshold_b : float
-        Track B の推定閾値 (dB FS)。
-
-    Returns
-    -------
-    float
-        最終パルセーション閾値 (dB FS)。
-    """
-    return (threshold_a + threshold_b) / 2.0

@@ -7,7 +7,7 @@ main.py
 実行フロー:
   1. 初期ダイアログ: 被験者ID, ITDリスト入力
   2. Phase 1: 1kHz聴取閾値測定 → マスカーレベル算出
-  3. Phase 2: 各ITD条件をランダム順で提示 → Track A/B インターリーブ
+  3. Phase 2: 各ITD条件をランダム順で提示 → 1-up 1-down 適応法
   4. CSV保存 → 終了
 """
 
@@ -21,30 +21,22 @@ if hasattr(sys.stdout, "reconfigure"):
 if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8")
 
-from psychopy import visual, core, gui, event
+from psychopy import visual, core, gui, event, sound, prefs
 
 import config
 from phase1_threshold import run_phase1
-from phase2_adaptive import run_itd_condition
-from data_recorder import DataRecorder, calculate_final_threshold
-from plot_results import load_csv, calc_thresholds, plot_all
+from phase2_1up1down import run_1up1down_condition
+from data_recorder import DataRecorder
+import plot_results
 
 
 # ────────────────────────────────────────────
 # 初期ダイアログ
 # ────────────────────────────────────────────
 
-from psychopy import sound, prefs
-
 def show_dialog() -> tuple[str, list[int], float | None, str, float, float, str, int]:
     """
     被験者IDと測定するITDリスト、および既知のSL基準値を取得するダイアログ。
-
-    Returns
-    -------
-    (subject_id, itd_list_us, sl_reference_db, device_name, test_freq, mod_freq, mod_type, masker_itd)
-        sl_reference_db: 入力があればその値を使いPhase1をスキップ。
-                         空欄なら None を返し、Phase1を実施する。
     """
     try:
         devices = sound.getDevices()
@@ -152,7 +144,8 @@ def main() -> None:
         sl_reference_db = run_phase1(win)
     else:
         print(f"Phase 1 skipped. Using SL reference = {sl_reference_db:.2f} dB FS")
-    masker_spectrum_level_db = sl_reference_db + config.SL_OFFSET_DB
+    # ユーザー要望: Target_SL + Phase1閾値
+    masker_spectrum_level_db = sl_reference_db + config.TARGET_SL
 
     # ── Phase 2: ITD条件をランダム順に実施 ──
     itd_order = list(range(len(itd_list_us)))
@@ -164,7 +157,7 @@ def main() -> None:
         itd_us = itd_list_us[idx]
         itd_sec = itd_list_sec[idx]
 
-        thr_a, thr_b = run_itd_condition(
+        final_thr, reversal_levels = run_1up1down_condition(
             win=win,
             masker_spectrum_level_db=masker_spectrum_level_db,
             itd_seconds=itd_sec,
@@ -179,11 +172,14 @@ def main() -> None:
             masker_itd_us=masker_itd,
         )
 
-        final_thr = calculate_final_threshold(thr_a, thr_b)
+        recorder.update_block_metadata(
+            itd_us=itd_us,
+            threshold_db=final_thr,
+            reversal_levels=reversal_levels
+        )
+
         final_thresholds.append({
             "itd_us": itd_us,
-            "threshold_A_dBFS": thr_a,
-            "threshold_B_dBFS": thr_b,
             "final_threshold_dBFS": final_thr,
         })
 
@@ -193,13 +189,11 @@ def main() -> None:
     print(f"\n=== Experiment finished: {subject_id} ===")
     print(f"Phase 1 SL ref: {sl_reference_db:.2f} dB FS")
     print(f"Masker spec level: {masker_spectrum_level_db:.2f} dB/Hz\n")
-    print(f"{'ITD(us)':>10} {'Track A':>10} {'Track B':>10} {'Final Thr':>10}")
+    print(f"{'ITD(us)':>10} {'Threshold(dB FS)':>18}")
     for row in sorted(final_thresholds, key=lambda r: r["itd_us"]):
         print(
             f"{row['itd_us']:>10} "
-            f"{row['threshold_A_dBFS']:>10.2f} "
-            f"{row['threshold_B_dBFS']:>10.2f} "
-            f"{row['final_threshold_dBFS']:>10.2f}"
+            f"{row['final_threshold_dBFS']:>18.2f}"
         )
     print(f"\nCSV saved: {csv_path}")
 
@@ -221,10 +215,16 @@ def main() -> None:
 
     # ── 結果グラフを自動生成 ──
     print("Generating result plots...")
-    df_result, _ = load_csv(csv_path)
-    thr_df, final_df = calc_thresholds(df_result)
+    df_result, _ = plot_results.load_csv(csv_path)
     stem = os.path.splitext(csv_path)[0]
-    plot_all(df_result, thr_df, final_df, stem)
+    
+    subtitle = f"Test: {test_freq}Hz, Mod: {mod_type} ({mod_freq}Hz), Masker ITD: {masker_itd}µs"
+    
+    # ITDごとにStaircaseをプロット
+    for itd, grp in df_result.groupby("itd_us"):
+        plot_results.plot_staircase(grp, itd, stem, subtitle)
+        
+    plot_results.plot_all(df_result, stem)
 
     core.quit()
 
