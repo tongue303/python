@@ -1,6 +1,6 @@
 import React from "react";
 import { Download, CheckCircle } from "lucide-react";
-import { ExperimentConfig } from "./SetupView";
+import type { ExperimentConfig } from "./SetupView";
 
 interface ResultViewProps {
   cfg: ExperimentConfig;

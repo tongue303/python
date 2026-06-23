@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { SetupView, ExperimentConfig } from './components/SetupView';
+import { useState } from 'react';
+import { SetupView } from './components/SetupView';
+import type { ExperimentConfig } from './components/SetupView';
 import { InstructionView } from './components/InstructionView';
 import { Phase1View } from './components/Phase1View';
 import { Phase2View } from './components/Phase2View';

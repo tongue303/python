@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Activity, Play } from "lucide-react";
+import { Activity } from "lucide-react";
 import * as config from "../config";
 import { Phase1ThresholdTrack } from "../AdaptiveTrack";
 import { generateTestSignal } from "../audio";
@@ -34,8 +34,8 @@ export const Phase1View: React.FC<Phase1ViewProps> = ({ onComplete }) => {
     const stereoData = generateTestSignal(levelDb, 0, config.PHASE1_DURATION, config.PHASE1_FREQ);
     
     const buffer = audioCtxRef.current.createBuffer(2, stereoData[0].length, config.SAMPLE_RATE);
-    buffer.copyToChannel(stereoData[0], 0);
-    buffer.copyToChannel(stereoData[1], 1);
+    buffer.copyToChannel(stereoData[0] as any, 0);
+    buffer.copyToChannel(stereoData[1] as any, 1);
 
     const source = audioCtxRef.current.createBufferSource();
     source.buffer = buffer;

@@ -10,6 +10,7 @@ export class Phase1ThresholdTrack {
   public lastDirection: "up" | "down" | null = null;
   public reversalLevels: number[] = [];
   public finished: boolean = false;
+  public trialNo: number = 0;
 
   constructor() {
     this.currentLevel = config.PHASE1_START_LEVEL;
@@ -37,6 +38,7 @@ export class Phase1ThresholdTrack {
   }
 
   public recordResponse(responded: boolean): void {
+    this.trialNo++;
     if (responded) {
       // 正答
       this.consecutiveCorrect++;
@@ -104,7 +106,10 @@ export class AdaptiveTrack1Up1Down {
   public trialNo: number = 0;
   public finished: boolean = false;
 
-  constructor(public maskerSpectrumLevelDb: number) {
+  public maskerSpectrumLevelDb: number;
+
+  constructor(maskerSpectrumLevelDb: number) {
+    this.maskerSpectrumLevelDb = maskerSpectrumLevelDb;
     const jitter = (Math.random() * 2 - 1) * config.ADAPTIVE_ROVING_RANGE; // -range to +range
     const initialTargetLevel = maskerSpectrumLevelDb + config.ADAPTIVE_INITIAL_TARGET_OFFSET + jitter;
 

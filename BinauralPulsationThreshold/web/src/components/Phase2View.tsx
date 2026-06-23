@@ -3,7 +3,7 @@ import { Headphones } from "lucide-react";
 import * as config from "../config";
 import { AdaptiveTrack1Up1Down } from "../AdaptiveTrack";
 import { buildAlternatingStimulus } from "../audio";
-import { ExperimentConfig } from "./SetupView";
+import type { ExperimentConfig } from "./SetupView";
 
 interface Phase2ViewProps {
   cfg: ExperimentConfig;
