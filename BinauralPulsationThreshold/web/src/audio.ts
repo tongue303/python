@@ -230,7 +230,11 @@ export async function buildAlternatingStimulus(
     maxAmp = Math.max(maxAmp, Math.abs(outLeft[i]), Math.abs(outRight[i]));
   }
   if (maxAmp > 0.99) {
-    console.warn("Audio clip warning: max amplitude is", maxAmp);
+    throw new Error(
+      "生成された刺激音の振幅がクリップの閾値（1.0）を超えました。\n" +
+      "SL基準値(Phase 1の閾値)が高すぎるか、Target SLが高すぎます。\n" +
+      "PCの出力音量を下げてアンプ側のゲインを上げてください。"
+    );
   }
 
   // AudioBuffer化

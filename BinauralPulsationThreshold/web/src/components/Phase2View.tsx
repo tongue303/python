@@ -15,7 +15,8 @@ export const Phase2View: React.FC<Phase2ViewProps> = ({ cfg, maskerSpectrumLevel
   const [itdOrder, setItdOrder] = useState<number[]>([]);
   const [currentConditionIndex, setCurrentConditionIndex] = useState(0);
   const [track, setTrack] = useState<AdaptiveTrack1Up1Down | null>(null);
-  const [status, setStatus] = useState<"idle" | "playing" | "waiting_response">("idle");
+  const [status, setStatus] = useState<"idle" | "playing" | "waiting_response" | "error">("idle");
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [results, setResults] = useState<{ itdUs: number; finalThreshold: number }[]>([]);
   
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -68,10 +69,10 @@ export const Phase2View: React.FC<Phase2ViewProps> = ({ cfg, maskerSpectrumLevel
         setStatus("waiting_response");
       };
       source.start();
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      // Fallback
-      setStatus("waiting_response");
+      setErrorMsg(e.message || "An unknown error occurred during audio generation.");
+      setStatus("error");
     }
   };
 
@@ -127,6 +128,17 @@ export const Phase2View: React.FC<Phase2ViewProps> = ({ cfg, maskerSpectrumLevel
       </div>
 
       <div className="test-prompt">
+        {status === "error" && (
+          <div className="fade-in" style={{ color: "var(--danger)", background: "rgba(239, 68, 68, 0.1)", padding: "1.5rem", borderRadius: "8px", textAlign: "left" }}>
+            <h3 style={{ marginTop: 0 }}>Audio Clip Error</h3>
+            <p style={{ whiteSpace: "pre-wrap", margin: 0, color: "var(--danger)" }}>{errorMsg}</p>
+            <div style={{ marginTop: "1rem", textAlign: "center" }}>
+              <button className="btn btn-primary" onClick={() => window.location.reload()}>
+                Reload Setup
+              </button>
+            </div>
+          </div>
+        )}
         {status === "idle" && (
           <span className="fade-in" style={{ color: "var(--text-muted)", fontSize: "1.2rem" }}>
             ITD = {itdOrder[currentConditionIndex]} µs <br/>
