@@ -40,9 +40,12 @@ export class Phase1ThresholdTrack {
   public recordResponse(responded: boolean): void {
     this.trialNo++;
     if (responded) {
-      // 正答
       this.consecutiveCorrect++;
-      if (this.consecutiveCorrect >= 2) {
+      
+      // 初期状態（最初の反転が起きる前）は1回の正答で下げる（加速）。反転後は2回の正答で下げる。
+      const requiredCorrect = this.nReversals === 0 ? 1 : 2;
+
+      if (this.consecutiveCorrect >= requiredCorrect) {
         if (this.lastDirection === "up") {
           this.nReversals++;
           this.reversalLevels.push(this.currentLevel);
