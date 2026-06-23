@@ -156,9 +156,6 @@ export const Phase2View: React.FC<Phase2ViewProps> = ({ cfg, maskerSpectrumLevel
         </div>
       )}
       
-      <div style={{ marginTop: "3rem", fontSize: "0.9rem", color: "var(--text-muted)" }}>
-        Current level: {track.getCurrentLevel().toFixed(1)} dB (Debug info)
-      </div>
     </div>
   );
 };

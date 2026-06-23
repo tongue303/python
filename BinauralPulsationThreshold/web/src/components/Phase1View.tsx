@@ -112,9 +112,6 @@ export const Phase1View: React.FC<Phase1ViewProps> = ({ onComplete }) => {
         </div>
       )}
       
-      <div style={{ marginTop: "3rem", fontSize: "0.9rem", color: "var(--text-muted)" }}>
-        Current level: {track.getCurrentLevel().toFixed(1)} dB (Debug info)
-      </div>
     </div>
   );
 };
