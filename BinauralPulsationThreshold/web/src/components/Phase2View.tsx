@@ -4,11 +4,12 @@ import * as config from "../config";
 import { AdaptiveTrack1Up1Down } from "../AdaptiveTrack";
 import { buildAlternatingStimulus } from "../audio";
 import type { ExperimentConfig } from "./SetupView";
+import type { Phase2ResultData } from "../App";
 
 interface Phase2ViewProps {
   cfg: ExperimentConfig;
   maskerSpectrumLevelDb: number;
-  onComplete: (results: { itdUs: number; finalThreshold: number }[]) => void;
+  onComplete: (results: Phase2ResultData[]) => void;
 }
 
 export const Phase2View: React.FC<Phase2ViewProps> = ({ cfg, maskerSpectrumLevelDb, onComplete }) => {
@@ -17,7 +18,7 @@ export const Phase2View: React.FC<Phase2ViewProps> = ({ cfg, maskerSpectrumLevel
   const [track, setTrack] = useState<AdaptiveTrack1Up1Down | null>(null);
   const [status, setStatus] = useState<"idle" | "playing" | "waiting_response" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [results, setResults] = useState<{ itdUs: number; finalThreshold: number }[]>([]);
+  const [results, setResults] = useState<Phase2ResultData[]>([]);
   
   const audioCtxRef = useRef<AudioContext | null>(null);
 
@@ -88,7 +89,7 @@ export const Phase2View: React.FC<Phase2ViewProps> = ({ cfg, maskerSpectrumLevel
           if (track.isFinished()) {
             // 現在の条件が終了
             const currentItdUs = itdOrder[currentConditionIndex];
-            const newResults = [...results, { itdUs: currentItdUs, finalThreshold: track.getThreshold() }];
+            const newResults = [...results, { itdUs: currentItdUs, finalThreshold: track.getThreshold(), history: track.history }];
             setResults(newResults);
 
             if (currentConditionIndex + 1 < itdOrder.length) {
