@@ -5,15 +5,18 @@ import { InstructionView } from './components/InstructionView';
 import { Phase1View } from './components/Phase1View';
 import { Phase2View } from './components/Phase2View';
 import { ResultView } from './components/ResultView';
+import type { TrackHistoryRecord } from './AdaptiveTrack';
 import * as config from './config';
 
 type AppState = "SETUP" | "INSTRUCTION" | "PHASE1" | "PHASE2" | "RESULT";
+
+export type Phase2ResultData = { itdUs: number; finalThreshold: number; history: TrackHistoryRecord[] };
 
 function App() {
   const [appState, setAppState] = useState<AppState>("SETUP");
   const [cfg, setCfg] = useState<ExperimentConfig | null>(null);
   const [phase1Threshold, setPhase1Threshold] = useState<number | null>(null);
-  const [phase2Results, setPhase2Results] = useState<{ itdUs: number; finalThreshold: number }[]>([]);
+  const [phase2Results, setPhase2Results] = useState<Phase2ResultData[]>([]);
 
   const handleStartSetup = (c: ExperimentConfig) => {
     setCfg(c);
@@ -35,7 +38,7 @@ function App() {
     setAppState("PHASE2");
   };
 
-  const handlePhase2Complete = (results: { itdUs: number; finalThreshold: number }[]) => {
+  const handlePhase2Complete = (results: Phase2ResultData[]) => {
     setPhase2Results(results);
     setAppState("RESULT");
   };
