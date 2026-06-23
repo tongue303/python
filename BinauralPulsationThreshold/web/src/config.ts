@@ -1,0 +1,71 @@
+// config.ts
+// パルセーション閾値測定プログラム 共通設定ファイル
+
+// ---- 音声基本設定 ----
+export const SAMPLE_RATE = 44100; // サンプリングレート (Hz)
+export const N_CHANNELS = 2; // ステレオ (左=0, 右=1)
+
+// ---- 刺激音 共通 ----
+export const RAMP_DURATION = 0.020; // コサインテーパー長さ (秒)
+
+// ---- Phase 1: 1kHz閾値測定 ----
+export const PHASE1_FREQ = 1000.0; // 純音周波数 (Hz)
+export const PHASE1_DURATION = 0.500; // 1呈示あたりの長さ (秒)
+export const PHASE1_START_LEVEL = -20.0; // 開始レベル (dB FS, フルスケール基準)
+export const PHASE1_STEP_LARGE = 2.0; // 初期ステップ幅 (dB)
+export const PHASE1_STEP_SMALL = 1.0; // 収束後ステップ幅 (dB)
+export const PHASE1_STEP_CHANGE_REVERSALS = 1; // ステップ縮小に必要な反転回数
+export const PHASE1_TOTAL_REVERSALS = 4; // Phase1終了に必要な反転回数
+export const PHASE1_MIN_LEVEL = -100.0; // 提示レベル下限 (dB FS)
+export const PHASE1_MAX_LEVEL = 0.0; // 提示レベル上限 (dB FS)
+
+// ---- Phase 2: 刺激音 ----
+export const MASKER_DURATION = 0.145; // マスカー1区間の長さ (秒)
+export const TEST_DURATION = 0.145; // テスト信号1区間の長さ (秒)
+export const CROSSFADE_DURATION = 0.020; // クロスフェード長さ (秒)
+export const TEST_FREQ = 500.0; // テスト信号周波数 (Hz)
+export const MOD_FREQ = 250.0; // 変調周波数 (Hz)
+export const MOD_TYPE: "None" | "SAM" | "Transposed" = "None"; // 変調タイプ
+export const MASKER_ITD_US = 0; // マスカーのITD (µs)
+export const TARGET_SL = 40.0; // マスカーの目標SL
+
+// 交番刺激パターン (T-M-T-M-...-S)
+export const N_TEST = 6;
+export const N_MASKER = N_TEST - 1;
+export const N_SILENCE = 1;
+
+// ---- Phase 2: 1-up/1-down 適応法 (Experiment C 準拠) ----
+export const ADAPTIVE_INITIAL_STEP_SIZE = 6.0;
+export const ADAPTIVE_SECOND_STEP_SIZE = 3.0;
+export const ADAPTIVE_FINAL_STEP_SIZE = 0.5;
+export const ADAPTIVE_REVERSAL_TRIGGER_1 = 2;
+export const ADAPTIVE_REVERSAL_TRIGGER_2 = 4;
+export const ADAPTIVE_MAX_REVERSALS = 10;
+export const ADAPTIVE_NUM_REVERSALS_FOR_MEAN = 6;
+export const ADAPTIVE_INITIAL_TARGET_OFFSET = 20.0;
+export const ADAPTIVE_ROVING_RANGE = 3.0;
+
+export const TEST_MIN_LEVEL = -80.0;
+export const TEST_MAX_LEVEL = 0.0;
+
+// ---- キー設定 ----
+export const KEY_PHASE1_YES = "y";
+export const KEY_PHASE1_NO = "n";
+export const KEY_CONTINUOUS = "c";
+export const KEY_INTERRUPTED = "i";
+
+// ---- 教示文 ----
+export const INSTRUCTION_TEXT = `====== 全体説明 ======
+この実験ではパルセーション閾値の測定を行います。
+
+[ Phase 1 ]
+1000Hzの純音が聞こえる最小の音の大きさを測定します。
+音が聞こえたら '${KEY_PHASE1_YES.toUpperCase()}' キーを、
+聞こえなかったら '${KEY_PHASE1_NO.toUpperCase()}' キーを押してください。
+
+[ Phase 2 ]
+ノイズ（ジャージャー音）とテスト音が交互に鳴るパターンが1回再生されます。
+テスト音がノイズの間で途切れず「連続」して聞こえたら '${KEY_CONTINUOUS.toUpperCase()}' キーを、
+途切れて聞こえたら '${KEY_INTERRUPTED.toUpperCase()}' キーを押してください。
+
+準備ができたら [Space] キーを押して開始してください。`;
