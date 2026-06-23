@@ -231,9 +231,9 @@ export async function buildAlternatingStimulus(
   }
   if (maxAmp > 0.99) {
     throw new Error(
-      "生成された刺激音の振幅がクリップの閾値（1.0）を超えました。\n" +
-      "SL基準値(Phase 1の閾値)が高すぎるか、Target SLが高すぎます。\n" +
-      "PCの出力音量を下げてアンプ側のゲインを上げてください。"
+      "The generated stimulus amplitude exceeded the clipping threshold (1.0).\n" +
+      "The Reference SL (Phase 1 threshold) or the Target SL may be too high.\n" +
+      "Please lower the PC output volume and increase the amplifier gain."
     );
   }
 
