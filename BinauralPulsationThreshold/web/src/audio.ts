@@ -188,20 +188,43 @@ export async function buildAlternatingStimulus(
   const bandwidth = testFreq * Math.sqrt(2) - testFreq / Math.sqrt(2);
   const overallMaskerDb = maskerSpectrumLevelDb + 10 * Math.log10(bandwidth);
 
+  const numContinuousT = 2 * config.N_TEST - 1;
+  const numSilence = 2 * config.N_SILENCE;
+  const numAlternating = 2 * config.N_TEST;
+  const totalSegments = numContinuousT + numSilence + numAlternating;
+
   const testSeg = generateTestSignal(testLevelDb, testItdSeconds, config.TEST_DURATION, testFreq, modFreq, modType);
   const segN = testSeg[0].length;
-  const totalSegments = 2 * config.N_TEST;
   const totalN = segN * totalSegments - cfN * (totalSegments - 1);
 
   const outLeft = new Float32Array(totalN);
   const outRight = new Float32Array(totalN);
 
   let pos = 0;
-  for (let i = 0; i < totalSegments; i++) {
+
+  // 1. 参照用連続音 (T)
+  // 単純なクロスフェード連結による位相干渉（音の途切れ）を防ぐため、1つの長い波形として生成する。
+  const continuousDuration = numContinuousT * config.TEST_DURATION - (numContinuousT - 1) * config.CROSSFADE_DURATION;
+  const longTestSeg = generateTestSignal(testLevelDb, testItdSeconds, continuousDuration, testFreq, modFreq, modType);
+  const longTestSegN = longTestSeg[0].length;
+
+  for (let j = 0; j < longTestSegN; j++) {
+    outLeft[pos + j] += longTestSeg[0][j];
+    outRight[pos + j] += longTestSeg[1][j];
+  }
+  pos += longTestSegN - cfN;
+
+  // 2. 無音 (S)
+  const silenceDuration = numSilence * config.TEST_DURATION - (numSilence - 1) * config.CROSSFADE_DURATION;
+  const silenceN = Math.floor(sr * silenceDuration);
+  pos += silenceN - cfN; // 何も足さずに位置だけ進める
+
+  // 3. 交番パターン (T-M-T-M-...-S)
+  for (let i = 0; i < numAlternating; i++) {
     let segLeft: Float32Array;
     let segRight: Float32Array;
 
-    if (i === totalSegments - 1) {
+    if (i === numAlternating - 1) {
       // 無音
       segLeft = new Float32Array(segN);
       segRight = new Float32Array(segN);

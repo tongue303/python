@@ -30,7 +30,7 @@ export const MASKER_ITD_US = 0; // マスカーのITD (µs)
 export const TARGET_SL = 40.0; // マスカーの目標SL
 
 // 交番刺激パターン (T-M-T-M-...-S)
-export const N_TEST = 6;
+export const N_TEST = 5;
 export const N_MASKER = N_TEST - 1;
 export const N_SILENCE = 1;
 
