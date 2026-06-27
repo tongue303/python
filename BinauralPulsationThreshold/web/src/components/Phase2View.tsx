@@ -77,34 +77,38 @@ export const Phase2View: React.FC<Phase2ViewProps> = ({ cfg, maskerSpectrumLevel
     }
   };
 
+  const handleResponse = (isContinuous: boolean) => {
+    if (!track) return;
+    track.recordResponse(isContinuous, track.trialNo);
+
+    if (track.isFinished()) {
+      // 現在の条件が終了
+      const currentItdUs = itdOrder[currentConditionIndex];
+      const newResults = [...results, { itdUs: currentItdUs, finalThreshold: track.getThreshold(), history: track.history }];
+      setResults(newResults);
+
+      if (currentConditionIndex + 1 < itdOrder.length) {
+        // 次の条件へ
+        setCurrentConditionIndex(idx => idx + 1);
+        setTrack(new AdaptiveTrack1Up1Down(maskerSpectrumLevelDb));
+        setStatus("idle");
+      } else {
+        // 全条件終了
+        onComplete(newResults);
+      }
+    } else {
+      setStatus("idle");
+      setTimeout(playStimulus, 300);
+    }
+  };
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (status === "waiting_response" && track) {
         const key = e.key.toLowerCase();
         if (key === config.KEY_CONTINUOUS || key === config.KEY_INTERRUPTED) {
           e.preventDefault();
-          const isContinuous = key === config.KEY_CONTINUOUS;
-          track.recordResponse(isContinuous, track.trialNo);
-
-          if (track.isFinished()) {
-            // 現在の条件が終了
-            const currentItdUs = itdOrder[currentConditionIndex];
-            const newResults = [...results, { itdUs: currentItdUs, finalThreshold: track.getThreshold(), history: track.history }];
-            setResults(newResults);
-
-            if (currentConditionIndex + 1 < itdOrder.length) {
-              // 次の条件へ
-              setCurrentConditionIndex(idx => idx + 1);
-              setTrack(new AdaptiveTrack1Up1Down(maskerSpectrumLevelDb));
-              setStatus("idle");
-            } else {
-              // 全条件終了
-              onComplete(newResults);
-            }
-          } else {
-            setStatus("idle");
-            setTimeout(playStimulus, 300);
-          }
+          handleResponse(key === config.KEY_CONTINUOUS);
         }
       } else if (status === "idle" && track?.trialNo === 0) {
         if (e.code === "Space") {
@@ -140,10 +144,21 @@ export const Phase2View: React.FC<Phase2ViewProps> = ({ cfg, maskerSpectrumLevel
             </div>
           </div>
         )}
-        {status === "idle" && (
+        {status === "idle" && track?.trialNo === 0 && (
+          <div className="fade-in" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem" }}>
+            <span style={{ color: "var(--text-muted)", fontSize: "1.2rem", marginBottom: "0.5rem" }}>ITD = {itdOrder[currentConditionIndex]} µs</span>
+            <button className="btn btn-primary" onClick={playStimulus} style={{ fontSize: "1.2rem", padding: "1rem 2rem", width: "100%", maxWidth: "300px" }}>
+              Start Trial
+            </button>
+            <span style={{ color: "var(--text-muted)", fontSize: "0.9rem" }}>
+              or press <kbd className="kbd">Space</kbd>
+            </span>
+          </div>
+        )}
+        {status === "idle" && track?.trialNo !== 0 && (
           <span className="fade-in" style={{ color: "var(--text-muted)", fontSize: "1.2rem" }}>
             ITD = {itdOrder[currentConditionIndex]} µs <br/>
-            Press <kbd className="kbd">Space</kbd> to start.
+            Preparing...
           </span>
         )}
         {status === "playing" && (
@@ -157,15 +172,23 @@ export const Phase2View: React.FC<Phase2ViewProps> = ({ cfg, maskerSpectrumLevel
       </div>
 
       {status === "waiting_response" && (
-        <div className="key-instruction fade-in">
-          <div className="key-badge">
-            <kbd className="kbd">{config.KEY_CONTINUOUS.toUpperCase()}</kbd>
+        <div className="fade-in" style={{ display: "flex", justifyContent: "center", gap: "1rem", marginTop: "2rem", flexWrap: "wrap" }}>
+          <button 
+            className="btn btn-secondary" 
+            onClick={() => handleResponse(true)}
+            style={{ fontSize: "1.2rem", padding: "1.5rem 2rem", flex: "1 1 200px", maxWidth: "300px", display: "flex", flexDirection: "column", alignItems: "center", gap: "0.5rem" }}
+          >
             <span>Continuous</span>
-          </div>
-          <div className="key-badge">
-            <kbd className="kbd">{config.KEY_INTERRUPTED.toUpperCase()}</kbd>
+            <kbd className="kbd" style={{ fontSize: "0.8rem", background: "rgba(255,255,255,0.1)" }}>{config.KEY_CONTINUOUS.toUpperCase()}</kbd>
+          </button>
+          <button 
+            className="btn btn-secondary" 
+            onClick={() => handleResponse(false)}
+            style={{ fontSize: "1.2rem", padding: "1.5rem 2rem", flex: "1 1 200px", maxWidth: "300px", display: "flex", flexDirection: "column", alignItems: "center", gap: "0.5rem" }}
+          >
             <span>Interrupted</span>
-          </div>
+            <kbd className="kbd" style={{ fontSize: "0.8rem", background: "rgba(255,255,255,0.1)" }}>{config.KEY_INTERRUPTED.toUpperCase()}</kbd>
+          </button>
         </div>
       )}
       

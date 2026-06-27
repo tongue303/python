@@ -29,8 +29,17 @@ export const InstructionView: React.FC<InstructionViewProps> = ({ onNext }) => {
         {config.INSTRUCTION_TEXT}
       </div>
 
-      <div style={{ textAlign: "center", marginTop: "2rem", color: "var(--text-muted)" }}>
-        Press <kbd className="kbd" style={{ margin: "0 0.5rem" }}>Space</kbd> to begin
+      <div style={{ textAlign: "center", marginTop: "2rem", display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem" }}>
+        <button 
+          className="btn btn-primary" 
+          onClick={onNext}
+          style={{ fontSize: "1.2rem", padding: "1rem 2rem", width: "100%", maxWidth: "300px" }}
+        >
+          Start Experiment
+        </button>
+        <span style={{ color: "var(--text-muted)", fontSize: "0.9rem" }}>
+          or press <kbd className="kbd">Space</kbd>
+        </span>
       </div>
     </div>
   );

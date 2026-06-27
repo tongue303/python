@@ -47,21 +47,23 @@ export const Phase1View: React.FC<Phase1ViewProps> = ({ onComplete }) => {
     source.start();
   };
 
+  const handleResponse = (responded: boolean) => {
+    track.recordResponse(responded);
+    if (track.isFinished()) {
+      onComplete(track.getThreshold());
+    } else {
+      setStatus("idle");
+      setTimeout(playStimulus, 300); // 0.3秒待って次の音
+    }
+  };
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (status === "waiting_response") {
         const key = e.key.toLowerCase();
         if (key === config.KEY_PHASE1_YES || key === config.KEY_PHASE1_NO) {
           e.preventDefault();
-          const responded = key === config.KEY_PHASE1_YES;
-          track.recordResponse(responded);
-
-          if (track.isFinished()) {
-            onComplete(track.getThreshold());
-          } else {
-            setStatus("idle");
-            setTimeout(playStimulus, 300); // 0.3秒待って次の音
-          }
+          handleResponse(key === config.KEY_PHASE1_YES);
         }
       } else if (status === "idle" && track.trialNo === 0) {
         // Spaceキーで最初の試行を開始
@@ -84,10 +86,15 @@ export const Phase1View: React.FC<Phase1ViewProps> = ({ onComplete }) => {
       </div>
 
       <div className="test-prompt">
-        {status === "idle" && (
-          <span className="fade-in" style={{ color: "var(--text-muted)", fontSize: "1.2rem" }}>
-            Press <kbd className="kbd">Space</kbd> to start the first trial.
-          </span>
+        {status === "idle" && track.trialNo === 0 && (
+          <div className="fade-in" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem" }}>
+            <button className="btn btn-primary" onClick={playStimulus} style={{ fontSize: "1.2rem", padding: "1rem 2rem", width: "100%", maxWidth: "300px" }}>
+              Start Experiment
+            </button>
+            <span style={{ color: "var(--text-muted)", fontSize: "0.9rem" }}>
+              or press <kbd className="kbd">Space</kbd>
+            </span>
+          </div>
         )}
         {status === "playing" && (
           <span className="fade-in" style={{ color: "var(--accent)" }}>
@@ -100,15 +107,23 @@ export const Phase1View: React.FC<Phase1ViewProps> = ({ onComplete }) => {
       </div>
 
       {status === "waiting_response" && (
-        <div className="key-instruction fade-in">
-          <div className="key-badge">
-            <kbd className="kbd">{config.KEY_PHASE1_YES.toUpperCase()}</kbd>
+        <div className="fade-in" style={{ display: "flex", justifyContent: "center", gap: "1rem", marginTop: "2rem", flexWrap: "wrap" }}>
+          <button 
+            className="btn btn-secondary" 
+            onClick={() => handleResponse(true)}
+            style={{ fontSize: "1.2rem", padding: "1.5rem 2rem", flex: "1 1 200px", maxWidth: "300px", display: "flex", flexDirection: "column", alignItems: "center", gap: "0.5rem" }}
+          >
             <span>Yes</span>
-          </div>
-          <div className="key-badge">
-            <kbd className="kbd">{config.KEY_PHASE1_NO.toUpperCase()}</kbd>
+            <kbd className="kbd" style={{ fontSize: "0.8rem", background: "rgba(255,255,255,0.1)" }}>{config.KEY_PHASE1_YES.toUpperCase()}</kbd>
+          </button>
+          <button 
+            className="btn btn-secondary" 
+            onClick={() => handleResponse(false)}
+            style={{ fontSize: "1.2rem", padding: "1.5rem 2rem", flex: "1 1 200px", maxWidth: "300px", display: "flex", flexDirection: "column", alignItems: "center", gap: "0.5rem" }}
+          >
             <span>No</span>
-          </div>
+            <kbd className="kbd" style={{ fontSize: "0.8rem", background: "rgba(255,255,255,0.1)" }}>{config.KEY_PHASE1_NO.toUpperCase()}</kbd>
+          </button>
         </div>
       )}
       
