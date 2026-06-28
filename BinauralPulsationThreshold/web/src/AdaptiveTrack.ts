@@ -5,16 +5,15 @@ import * as config from "./config";
 export class Phase1ThresholdTrack {
   public currentLevel: number;
   public stepSize: number;
-  public consecutiveCorrect: number = 0;
-  public nReversals: number = 0;
-  public lastDirection: "up" | "down" | null = null;
+  public reversalCount: number = 0;
+  public previousDirection: 1 | -1 | null = null;
   public reversalLevels: number[] = [];
   public finished: boolean = false;
   public trialNo: number = 0;
 
   constructor() {
     this.currentLevel = config.PHASE1_START_LEVEL;
-    this.stepSize = config.PHASE1_STEP_LARGE;
+    this.stepSize = config.ADAPTIVE_INITIAL_STEP_SIZE;
   }
 
   public isFinished(): boolean {
@@ -26,64 +25,49 @@ export class Phase1ThresholdTrack {
   }
 
   public getThreshold(): number {
-    // ステップ縮小後の反転点のみを使用
-    const smallStepReversals = this.reversalLevels.slice(config.PHASE1_STEP_CHANGE_REVERSALS);
-    if (smallStepReversals.length > 0) {
-      return smallStepReversals.reduce((a, b) => a + b, 0) / smallStepReversals.length;
+    if (this.reversalLevels.length < config.ADAPTIVE_MAX_REVERSALS) {
+      return this.reversalLevels.length > 0
+        ? this.reversalLevels.reduce((a, b) => a + b, 0) / this.reversalLevels.length
+        : this.currentLevel;
     }
-    if (this.reversalLevels.length > 0) {
-      return this.reversalLevels.reduce((a, b) => a + b, 0) / this.reversalLevels.length;
-    }
-    return this.currentLevel;
+
+    const startIdx = config.ADAPTIVE_MAX_REVERSALS - config.ADAPTIVE_NUM_REVERSALS_FOR_MEAN;
+    const targetRevs = this.reversalLevels.slice(startIdx);
+    return targetRevs.reduce((a, b) => a + b, 0) / targetRevs.length;
   }
 
   public recordResponse(responded: boolean): void {
     this.trialNo++;
-    if (responded) {
-      this.consecutiveCorrect++;
-      
-      // 初期状態（最初の反転が起きる前）は1回の正答で下げる（加速）。反転後は2回の正答で下げる。
-      const requiredCorrect = this.nReversals === 0 ? 1 : 2;
+    
+    // Yes (聞こえた) -> レベルを下げる (-1)
+    // No (聞こえない) -> レベルを上げる (+1)
+    const currentDirection: 1 | -1 = responded ? -1 : 1;
+    const nextLevel = this.currentLevel + currentDirection * this.stepSize;
 
-      if (this.consecutiveCorrect >= requiredCorrect) {
-        if (this.lastDirection === "up") {
-          this.nReversals++;
-          this.reversalLevels.push(this.currentLevel);
-          if (this.nReversals === config.PHASE1_STEP_CHANGE_REVERSALS) {
-            this.stepSize = config.PHASE1_STEP_SMALL;
-          }
-        }
-        this.currentLevel -= this.stepSize;
-        this.lastDirection = "down";
-        this.consecutiveCorrect = 0;
+    // 反転判定
+    if (this.previousDirection !== null && currentDirection !== this.previousDirection) {
+      this.reversalCount++;
+      this.reversalLevels.push(this.currentLevel);
+
+      // ステップサイズ更新
+      if (this.reversalCount === config.ADAPTIVE_REVERSAL_TRIGGER_1) {
+        this.stepSize = config.ADAPTIVE_SECOND_STEP_SIZE;
+      } else if (this.reversalCount === config.ADAPTIVE_REVERSAL_TRIGGER_2) {
+        this.stepSize = config.ADAPTIVE_FINAL_STEP_SIZE;
       }
-    } else {
-      // 誤答
-      this.consecutiveCorrect = 0;
-      if (this.lastDirection === "down") {
-        this.nReversals++;
-        this.reversalLevels.push(this.currentLevel);
-        if (this.nReversals === config.PHASE1_STEP_CHANGE_REVERSALS) {
-          this.stepSize = config.PHASE1_STEP_SMALL;
-        }
-      }
-      this.currentLevel += this.stepSize;
-      this.lastDirection = "up";
     }
 
-    // レベル境界チェック
-    if (this.currentLevel < config.PHASE1_MIN_LEVEL) {
-      this.currentLevel = config.PHASE1_MIN_LEVEL;
-      this.lastDirection = "up";
-      this.consecutiveCorrect = 0;
-    } else if (this.currentLevel > config.PHASE1_MAX_LEVEL) {
-      this.currentLevel = config.PHASE1_MAX_LEVEL;
-      this.lastDirection = "down";
-      this.consecutiveCorrect = 0;
-    }
+    this.previousDirection = currentDirection;
 
-    if (this.nReversals >= config.PHASE1_TOTAL_REVERSALS) {
+    // 終了判定
+    if (this.reversalCount >= config.ADAPTIVE_MAX_REVERSALS) {
       this.finished = true;
+    } else {
+      // 次のレベルへ（境界チェック含む）
+      this.currentLevel = Math.max(
+        config.PHASE1_MIN_LEVEL,
+        Math.min(config.PHASE1_MAX_LEVEL, nextLevel)
+      );
     }
   }
 }
