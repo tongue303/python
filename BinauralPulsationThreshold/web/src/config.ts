@@ -12,10 +12,6 @@ export const RAMP_DURATION = 0.020; // コサインテーパー長さ (秒)
 export const PHASE1_FREQ = 1000.0; // 純音周波数 (Hz)
 export const PHASE1_DURATION = 0.500; // 1呈示あたりの長さ (秒)
 export const PHASE1_START_LEVEL = -20.0; // 開始レベル (dB FS, フルスケール基準)
-export const PHASE1_STEP_LARGE = 2.0; // 初期ステップ幅 (dB)
-export const PHASE1_STEP_SMALL = 1.0; // 収束後ステップ幅 (dB)
-export const PHASE1_STEP_CHANGE_REVERSALS = 1; // ステップ縮小に必要な反転回数
-export const PHASE1_TOTAL_REVERSALS = 4; // Phase1終了に必要な反転回数
 export const PHASE1_MIN_LEVEL = -100.0; // 提示レベル下限 (dB FS)
 export const PHASE1_MAX_LEVEL = 0.0; // 提示レベル上限 (dB FS)
 
@@ -34,10 +30,10 @@ export const N_TEST = 5;
 export const N_MASKER = N_TEST - 1;
 export const N_SILENCE = 1;
 
-// ---- Phase 2: 1-up/1-down 適応法 (Experiment C 準拠) ----
+// ---- Phase 1/2 共通: 1-up 1-down 階段法パラメータ ----
 export const ADAPTIVE_INITIAL_STEP_SIZE = 6.0;
 export const ADAPTIVE_SECOND_STEP_SIZE = 3.0;
-export const ADAPTIVE_FINAL_STEP_SIZE = 0.5;
+export const ADAPTIVE_FINAL_STEP_SIZE = 1.0;
 export const ADAPTIVE_REVERSAL_TRIGGER_1 = 2;
 export const ADAPTIVE_REVERSAL_TRIGGER_2 = 4;
 export const ADAPTIVE_MAX_REVERSALS = 10;

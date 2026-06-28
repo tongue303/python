@@ -10,7 +10,7 @@ interface Phase1ViewProps {
 
 export const Phase1View: React.FC<Phase1ViewProps> = ({ onComplete }) => {
   const [track] = useState(() => new Phase1ThresholdTrack());
-  const [status, setStatus] = useState<"idle" | "playing" | "waiting_response">("idle");
+  const [status, setStatus] = useState<"idle" | "playing" | "waiting_response" | "completed">("idle");
   const audioCtxRef = useRef<AudioContext | null>(null);
 
   useEffect(() => {
@@ -50,7 +50,7 @@ export const Phase1View: React.FC<Phase1ViewProps> = ({ onComplete }) => {
   const handleResponse = (responded: boolean) => {
     track.recordResponse(responded);
     if (track.isFinished()) {
-      onComplete(track.getThreshold());
+      setStatus("completed");
     } else {
       setStatus("idle");
       setTimeout(playStimulus, 300); // 0.3秒待って次の音
@@ -70,6 +70,11 @@ export const Phase1View: React.FC<Phase1ViewProps> = ({ onComplete }) => {
         if (e.code === "Space") {
           e.preventDefault();
           playStimulus();
+        }
+      } else if (status === "completed") {
+        if (e.code === "Space") {
+          e.preventDefault();
+          onComplete(track.getThreshold());
         }
       }
     };
@@ -124,6 +129,29 @@ export const Phase1View: React.FC<Phase1ViewProps> = ({ onComplete }) => {
             <span>No</span>
             <kbd className="kbd" style={{ fontSize: "0.8rem", background: "rgba(255,255,255,0.1)" }}>{config.KEY_PHASE1_NO.toUpperCase()}</kbd>
           </button>
+        </div>
+      )}
+      {status === "completed" && (
+        <div className="fade-in" style={{ textAlign: "center", marginTop: "2rem" }}>
+          <h3 style={{ fontSize: "2rem", color: "var(--accent)", marginBottom: "0.5rem" }}>Phase 1 Complete</h3>
+          <p style={{ color: "var(--text-muted)", fontSize: "1.1rem" }}>Please record this value if necessary.</p>
+          <div style={{ margin: "2rem auto", padding: "2rem", background: "rgba(255,255,255,0.05)", borderRadius: "12px", maxWidth: "400px" }}>
+            <span style={{ fontSize: "1.2rem", color: "var(--text-muted)" }}>Your 1kHz Threshold</span>
+            <br/>
+            <strong style={{ fontSize: "3.5rem", color: "var(--text-light)", display: "block", marginTop: "0.5rem" }}>
+              {track.getThreshold().toFixed(1)} <span style={{ fontSize: "1.5rem", color: "var(--text-muted)", fontWeight: "normal" }}>dB FS</span>
+            </strong>
+          </div>
+          <button 
+            className="btn btn-primary" 
+            style={{ fontSize: "1.2rem", padding: "1rem 2rem", width: "100%", maxWidth: "300px" }}
+            onClick={() => onComplete(track.getThreshold())}
+          >
+            Proceed to Phase 2
+          </button>
+          <div style={{ color: "var(--text-muted)", fontSize: "0.9rem", marginTop: "1rem" }}>
+            or press <kbd className="kbd">Space</kbd>
+          </div>
         </div>
       )}
       
