@@ -64,7 +64,9 @@ Press the '${KEY_PHASE1_YES.toUpperCase()}' key if you heard the sound.
 Press the '${KEY_PHASE1_NO.toUpperCase()}' key if you did not hear it.
 
 [ Phase 2 ]
-A pattern of alternating noise and a test tone will be played once.
+First, you will hear a clear, continuous reference tone.
+Following a brief silence, you will hear an alternating pattern of noise and a test tone.
+Using the first tone as a reference, please judge how the test tone in the alternating pattern sounded to you:
 Press the '${KEY_CONTINUOUS.toUpperCase()}' key if the test tone sounded "continuous" between the noise bursts.
 Press the '${KEY_INTERRUPTED.toUpperCase()}' key if it sounded "interrupted".
 
